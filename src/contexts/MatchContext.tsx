@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { Match } from '../types';
-import { mockMatches as initialMatches } from '../data/mockMatches';
 
 interface MatchContextType {
   matches: Match[];
@@ -22,7 +21,7 @@ function filterActiveMatches(matches: Match[]): Match[] {
 }
 
 export function MatchProvider({ children }: { children: ReactNode }) {
-  const [matches, setMatches] = useState<Match[]>(initialMatches);
+  const [matches, setMatches] = useState<Match[]>([]);
 
   // Rensa utgångna matcher var 60:e sekund
   useEffect(() => {
