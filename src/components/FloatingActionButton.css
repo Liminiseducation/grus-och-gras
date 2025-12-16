@@ -1,0 +1,35 @@
+.fab {
+  position: fixed;
+  bottom: var(--space-5);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary);
+  color: white;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  z-index: 100;
+}
+
+.fab:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(45, 106, 79, 0.4);
+}
+
+.fab:active {
+  transform: translateX(-50%) translateY(0);
+  box-shadow: 0 2px 8px rgba(45, 106, 79, 0.3);
+}
+
+.fab svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
