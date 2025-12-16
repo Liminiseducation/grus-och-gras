@@ -45,9 +45,9 @@ export default function UserSetupPage() {
           
           {step === 'name' && (
             <>
-              <h1 className="user-setup-headline">Vad ska vi kalla dig?</h1>
+              <h1 className="user-setup-headline">Välkommen till Grus & Gräs</h1>
               <p className="user-setup-description">
-                Vi behöver bara ett namn så att andra spelare känner igen dig
+                Hitta och skapa matcher när du vill. Spela en seriös match, träna lite, eller bara ha kul med bollen. Först behöver vi bara veta vad vi ska kalla dig.
               </p>
 
               <form onSubmit={handleNameSubmit} className="user-setup-form">
