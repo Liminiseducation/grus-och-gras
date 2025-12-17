@@ -1,7 +1,7 @@
 .install-ios-hint {
   position: fixed;
   left: 12px;
-  bottom: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   right: auto;
   display: flex;
   align-items: center;
@@ -11,10 +11,12 @@
   padding: 8px 10px;
   border-radius: 14px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-  z-index: 1000;
+  z-index: 10000;
   max-width: 92%;
   font-size: 13px;
   color: #0b6b4f;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
 .install-ios-content {

@@ -3,17 +3,23 @@ import './InstallHintIOS.css';
 
 const DISMISS_KEY = 'pwa-ios-dismissed';
 
-function isIosSafari() {
+function isIosBrowser() {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
   const ua = navigator.userAgent || navigator.vendor || '';
-  const isIOS = /iP(ad|hone|od)/.test(ua);
+  const platform = navigator.platform || '';
+  const isiOSPlatform = /iP(hone|od|ad)/.test(platform);
+  const isiOSUA = /iP(hone|od|ad)/.test(ua);
+  // Recent iPadOS reports as MacIntel; detect touch-capable Mac UA as iPad
+  const isTouchMac = /Macintosh/.test(ua) && 'ontouchend' in document;
   const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|Chrome/.test(ua);
-  return isIOS && isSafari;
+  return (isiOSPlatform || isiOSUA || isTouchMac) && isSafari;
 }
 
 function isStandalone() {
   try {
-    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (navigator as any).standalone;
+    const mm = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || false;
+    const navStandalone = (navigator as any).standalone === true;
+    return mm || navStandalone;
   } catch (e) {
     return false;
   }
@@ -24,9 +30,13 @@ export default function InstallHintIOS() {
 
   useEffect(() => {
     try {
-      if (!isIosSafari()) return;
-      if (isStandalone()) return;
-      if (localStorage.getItem(DISMISS_KEY)) return;
+      const detectedIos = isIosBrowser();
+      const standaloneMode = isStandalone();
+      const dismissed = !!localStorage.getItem(DISMISS_KEY);
+      console.log('InstallHintIOS decision', { detectedIos, standaloneMode, dismissed });
+      if (!detectedIos) return;
+      if (standaloneMode) return;
+      if (dismissed) return;
       // show after small delay so it feels non-intrusive
       const t = window.setTimeout(() => setVisible(true), 600);
       return () => window.clearTimeout(t);
