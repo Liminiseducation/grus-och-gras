@@ -6,6 +6,7 @@ import UserSetupPage from './pages/UserSetupPage';
 import MatchListPage from './pages/MatchListPage';
 import CreateMatchPage from './pages/CreateMatchPage';
 import MatchDetailsPage from './pages/MatchDetailsPage';
+import './lib/supabase';
 import './App.css';
 
 function App() {

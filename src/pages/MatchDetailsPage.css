@@ -1,6 +1,157 @@
 .match-details-page {
   min-height: 100vh;
   background: #f5f5f5;
+  padding: var(--space-5) 0;
+}
+
+.details-container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--space-3) var(--space-6);
+}
+
+.loading-banner,
+.error-container {
+  background: white;
+  border: 1px solid #eee;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.error-container {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+/* Sticky action bar for join/leave/delete */
+.action-bar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: stretch;
+  padding: calc(var(--space-3)) calc(var(--space-3));
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.98));
+  border-top: 1px solid rgba(0,0,0,0.04);
+}
+
+@media (max-width: 768px) {
+  .action-bar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.06);
+  }
+
+  .action-bar .btn-join,
+  .action-bar .btn-leave {
+    flex: 1 1 auto;
+  }
+}
+
+/* Mobile-first join bar styling */
+.join-bar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.join-primary {
+  flex: 1 1 100%;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(45,106,79,0.12);
+  cursor: pointer;
+}
+
+.join-primary.join-disabled {
+  background: #d1d5db;
+  color: #444;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cta-not-member {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cta-spots {
+  font-size: 0.95rem;
+  color: var(--color-neutral-700);
+  font-weight: 600;
+  text-align: left;
+}
+
+.cta-member {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.member-status {
+  font-weight: 700;
+  color: var(--color-neutral-800);
+}
+
+.joined-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+}
+
+.joined-badge {
+  flex: 1 1 auto;
+  background: transparent;
+  color: var(--color-neutral-700);
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.btn-leave-small,
+.btn-delete-small {
+  flex: 0 0 auto;
+  background: white;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+  padding: 0.55rem 0.9rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (min-width: 769px) {
+  /* On larger screens keep buttons inline but styled as small chips */
+  .join-bar { justify-content: flex-end; padding: 0; }
+  .join-primary { width: auto; padding: 0.6rem 1rem; border-radius: 10px; }
+  .joined-row { width: auto; gap: 0.5rem; }
+}
+
+.player-name {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-900);
+  text-align: center;
+}
+
+.player-name-empty {
+  color: var(--color-neutral-500);
 }
 
 .details-header {
@@ -87,14 +238,14 @@
 }
 
 .btn-leave {
-  background: white;
-  color: #dc2626;
-  border: 2px solid #dc2626;
+  /* neutral/default for any legacy usage — not used as primary here */
+  background: transparent;
+  color: var(--color-neutral-700);
+  border: 1px solid transparent;
 }
 
 .btn-leave:hover {
-  background: #dc2626;
-  color: white;
+  background: rgba(0,0,0,0.02);
 }
 
 .btn-share {
@@ -158,10 +309,10 @@
 }
 
 .match-title {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 800;
   color: var(--color-neutral-900);
-  margin: 0 0 var(--space-3) 0;
+  margin: 0 0 var(--space-2) 0;
 }
 
 .match-meta {
@@ -339,6 +490,196 @@
   margin: 0 0 var(--space-1) 0;
 }
 
+/* Players grid and cards */
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 0.75rem;
+  margin-top: var(--space-2);
+}
+
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: white;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 6px rgba(20,20,20,0.02);
+}
+
+.player-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3faf4;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.player-avatar-empty {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fbfdfe;
+  color: #cbd5e1;
+}
+
+.player-card-empty {
+  border: 2px dashed #e6eef6;
+  background: rgba(240,248,255,0.45);
+  color: #94a3b8;
+}
+
+/* Subtle pulse animation for empty slots to draw gentle attention */
+@keyframes emptyPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(11,107,58,0.00);
+    transform: translateY(0);
+  }
+  60% {
+    box-shadow: 0 10px 30px rgba(11,107,58,0.06);
+    transform: translateY(-2px);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(11,107,58,0.00);
+    transform: translateY(0);
+  }
+}
+
+.player-card-empty {
+  animation: emptyPulse 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-card-empty {
+    animation: none;
+  }
+}
+
+.player-name {
+  font-size: 0.98rem;
+  color: var(--color-neutral-900);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.player-name-empty {
+  color: #94a3b8;
+}
+
+.you-badge {
+  background: #0b6b3a; /* darker green for strong contrast */
+  color: #ffffff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 6px rgba(11,107,58,0.12);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Matchinfo card - mobile friendly summary card */
+.match-info-card {
+  background: white;
+  border: 1px solid #e8eef6;
+  border-radius: 14px;
+  padding: 0.75rem;
+  margin: var(--space-4) 0;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+}
+
+.match-info-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.info-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(240,248,255,0.9);
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+.info-text {
+  font-size: 0.98rem;
+  color: var(--color-neutral-800);
+  line-height: 1.3;
+}
+
+/* Ensure description can wrap nicely and doesn't look like a label */
+.info-row .info-text {
+  white-space: normal;
+}
+
+.remaining-spots {
+  margin-top: 0.9rem;
+  background: rgba(11,107,58,0.05);
+  color: #0b6b3a;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* When user is a member, make leave the primary CTA */
+.leave-primary {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  background: #0b6b3a;
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(11,107,58,0.12);
+  border: none;
+}
+
+/* Discreet delete for creator */
+.btn-delete-discrete {
+  background: transparent;
+  border: none;
+  color: var(--color-neutral-600);
+  font-size: 0.95rem;
+  padding: 0.5rem;
+  opacity: 0.8;
+}
+
+/* Make primary CTA prominent on mobile */
+.action-bar.join-bar {
+  padding: 1rem;
+}
+
+@media (max-width: 768px) {
+  .action-bar.join-bar { position: sticky; bottom: 0; left: 0; right: 0; z-index: 50; box-shadow: 0 -8px 30px rgba(15,23,42,0.06); }
+  .cta-not-member, .cta-member { padding: 0; }
+}
+
+@media (min-width: 900px) {
+  .players-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .section-subtitle {
   font-size: var(--text-sm);
   color: var(--color-neutral-500);
@@ -409,6 +750,80 @@
 .player-name-empty {
   color: #999;
 }
+
+/* --- Players layout overrides (mobile-first, consistent grid, soft cards) --- */
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: var(--space-2);
+}
+
+.player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  background: #ffffff;
+  border: 1px solid rgba(230,236,240,0.9);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+}
+
+.player-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 0.95rem;
+}
+
+.player-card-empty.player-empty {
+  background: transparent;
+  border: 1px dashed rgba(160,170,180,0.35);
+  color: #94a3b8;
+  opacity: 0.9;
+}
+
+.player-name-label {
+  font-size: 0.98rem;
+  color: #111827;
+  font-weight: 600;
+  text-align: center;
+}
+
+.player-name-empty {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.remaining-spots {
+  margin-top: 0.9rem;
+  background: rgba(14,165,95,0.06);
+  color: #0b6b3a;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Helper notes under players */
+.helper-note {
+  margin-top: 0.6rem;
+  font-size: 0.95rem;
+  color: var(--color-neutral-600);
+  text-align: center;
+  padding: 0 0.25rem;
+}
+
+.empty-helper {
+  color: var(--color-neutral-600);
+}
+
+.full-helper {
+  color: var(--color-neutral-700);
+  font-weight: 700;
+}
+
 
 .ai-section {
   background: white;

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "delete:matches": "node scripts/delete-all-matches.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

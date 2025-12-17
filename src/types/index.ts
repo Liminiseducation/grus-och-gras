@@ -26,6 +26,8 @@ export interface Match {
   latitude?: number;
   longitude?: number;
   createdBy?: string; // User ID of match creator
+  creatorId?: string; // alias for createdBy (optional)
+  creatorName?: string; // Name of match creator
 }
 
 export interface Team {

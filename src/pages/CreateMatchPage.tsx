@@ -37,24 +37,32 @@ function CreateMatchPage() {
     description: '',
   });
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    addMatch({
-      title: formData.title,
-      area: formData.area,
-      city: formData.city || undefined,
-      date: formData.date,
-      time: formData.time,
-      maxPlayers: parseInt(formData.maxPlayers),
-      surface: formData.surface,
-      hasBall: formData.hasBall,
-      requiresFootballShoes: formData.requiresFootballShoes,
-      playStyle: formData.playStyle || undefined,
-      description: formData.description || undefined,
-    }, user?.id, user?.name);
+    console.log('Creating match with data:', formData);
     
-    navigate('/');
+    try {
+      await addMatch({
+        title: formData.title,
+        area: formData.area,
+        city: formData.city || '',
+        date: formData.date,
+        time: formData.time,
+        maxPlayers: parseInt(formData.maxPlayers),
+        surface: formData.surface,
+        hasBall: formData.hasBall,
+        requiresFootballShoes: formData.requiresFootballShoes,
+        playStyle: formData.playStyle || undefined,
+        description: formData.description || undefined,
+      }, user?.id, user?.name);
+      
+      console.log('Match created, navigating to home');
+      navigate('/');
+    } catch (err) {
+      console.error('Failed to create match:', err);
+      alert('Kunde inte skapa matchen. Försök igen.');
+    }
   };
 
   const handleLocationChipClick = (location: string) => {

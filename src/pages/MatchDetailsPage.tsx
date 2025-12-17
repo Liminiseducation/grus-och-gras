@@ -1,277 +1,272 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Player, User } from '../types';
 import { useMatches } from '../contexts/MatchContext';
 import PlayerAvatar from '../components/PlayerAvatar';
-import { divideIntoTeams } from '../utils/teamUtils';
 import './MatchDetailsPage.css';
-
-const USER_STORAGE_KEY = 'grus-gras-user';
 
 function MatchDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { matches, joinMatch, leaveMatch } = useMatches();
-  const match = matches.find(m => m.id === id);
-  
-  // Get current user
-  const userJson = localStorage.getItem(USER_STORAGE_KEY);
-  const currentUser: User | null = userJson ? JSON.parse(userJson) : null;
-  const isCreator = match?.createdBy === currentUser?.id;
-  
+  const { matches, joinMatch, leaveMatch, deleteMatch } = useMatches();
+
+  const loading = !matches;
+  const match = matches ? matches.find(m => m.id === id) : undefined;
+
+  // Debug logs removed for production polish
+
+  // Current user from localStorage
+  const USER_STORAGE_KEY = 'grus-gras-user';
+  const userJson = typeof window !== 'undefined' ? localStorage.getItem(USER_STORAGE_KEY) : null;
+  const currentUser = userJson ? JSON.parse(userJson) : null;
+  const currentUserId = currentUser?.id || '';
+
+  const isMember = !!match?.players?.some((p: any) => p.id === currentUserId);
+  const isCreator = match ? ((match.createdBy || (match as any).creatorId) === currentUserId) : false;
+  const isFull = match ? (match.players.length >= (match.maxPlayers || 0)) : false;
   const players = match?.players || [];
-  const [generatedTeams, setGeneratedTeams] = useState<Player[][] | null>(null);
-  const [showShareConfirmation, setShowShareConfirmation] = useState(false);
-  
-  // Check if current user has joined
-  const hasJoined = currentUser ? players.some(p => p.id === currentUser.id) : false;
-  const isFull = players.length >= (match?.maxPlayers || 0);
+  const maxPlayers = match?.maxPlayers || 0;
+  const remainingSpots = maxPlayers > players.length ? maxPlayers - players.length : 0;
 
-  if (!match) {
-    return (
-      <div className="match-details-page">
-        <div className="error-container">
-          <div className="error-icon">⚽</div>
-          <h2 className="error-title">Matchen hittades inte</h2>
-          <p className="error-message">
-            Denna match har antingen tagits bort eller så är länken felaktig.
-          </p>
-          <button onClick={() => navigate('/')} className="btn-primary">
-            Visa alla matcher
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Action button state logging removed
 
-  const emptySlots = Math.max(0, match.maxPlayers - players.length);
-  const emptySlotArray = Array.from({ length: emptySlots }, (_, i) => i);
-
-  const handleGenerateTeams = () => {
-    const teams = divideIntoTeams(players, 2);
-    setGeneratedTeams(teams);
-  };
-
-  const handleResetTeams = () => {
-    setGeneratedTeams(null);
-  };
-  
-  const handleJoinMatch = () => {
-    if (!currentUser || !match) return;
-    joinMatch(match.id, { id: currentUser.id, name: currentUser.name });
-  };
-  
-  const handleLeaveMatch = () => {
-    if (!currentUser || !match) return;
-    leaveMatch(match.id, currentUser.id);
-  };
-
-  const handleShare = async () => {
-    if (!match) return;
-    
+  const handleJoin = async () => {
     try {
-      const url = `${window.location.origin}/match/${match.id}`;
-      await navigator.clipboard.writeText(url);
-      
-      setShowShareConfirmation(true);
-      setTimeout(() => {
-        setShowShareConfirmation(false);
-      }, 3000);
-    } catch (error) {
-      console.error('Failed to copy URL:', error);
+      console.log('Join clicked', { matchId: match?.id, userId: currentUserId });
+      if (!match || !joinMatch) return;
+      await joinMatch(match.id, { id: currentUserId, name: currentUser?.name || '' });
+    } catch (err) {
+      console.error('Error joining:', err);
+    }
+  };
+
+  const handleLeave = async () => {
+    try {
+      console.log('Leave clicked', { matchId: match?.id, userId: currentUserId });
+      if (!match || !leaveMatch) return;
+      await leaveMatch(match.id, currentUserId);
+    } catch (err) {
+      console.error('Error leaving:', err);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      console.log('Delete clicked', { matchId: match?.id, userId: currentUserId });
+      if (!match || !deleteMatch) return;
+      const ok = window.confirm('Är du säker på att du vill radera denna match? Denna åtgärd kan inte ångras.');
+      if (!ok) return;
+      await deleteMatch(match.id);
+      // Navigate back to match list after deletion
+      navigate('/');
+    } catch (err) {
+      console.error('Error deleting:', err);
     }
   };
 
   return (
     <div className="match-details-page">
+      <div className="details-container">
+      {/* Loading / error banners (always show main container) */}
+      {loading && (
+        <div className="loading-banner">
+          <p>Laddar matcher…</p>
+        </div>
+      )}
+
+      {!loading && !match && (
+        <div className="error-container">
+          <div className="error-icon">⚽</div>
+          <h2 className="error-title">Matchen hittades inte</h2>
+          <p className="error-message">Denna match har antingen tagits bort eller så är länken felaktig.</p>
+        </div>
+      )}
+
       <header className="details-header">
-        <button onClick={() => navigate(-1)} className="back-button">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <button
+          className="back-button"
+          onClick={() => navigate('/')}
+          aria-label="Tillbaka till matcher"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
+          Tillbaka
         </button>
-        <p className="match-label">MATCH</p>
-        <p className="match-date">{match.date}</p>
+
+        <h1 className="match-title">{match?.title || 'Ingen titel'}</h1>
+        <p className="match-date">Datum: {match?.date || 'Okänt datum'}</p>
       </header>
 
-      <div className="details-content">
-        <section className="match-header-section">
-          <h1 className="match-title">{match.title}</h1>
-          
-          <div className="time-badge">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M8 4v4l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            <span>{match.time}</span>
+      <section className="info-section">
+        <div className="info-grid">
+          <div className="description-card">
+            <p className="description-text">{match?.description || 'Ingen beskrivning tillgänglig'}</p>
           </div>
 
-          <div className="player-count-badge">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 8c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM8 9.5c-2.33 0-7 1.17-7 3.5V15h14v-2c0-2.33-4.67-3.5-7-3.5z" fill="currentColor"/>
-            </svg>
-            {players.length} / {match.maxPlayers} Spelare
+          <div className="info-card">
+            <div className="info-label">Max antal spelare</div>
+            <div className="info-value">{match?.maxPlayers ?? 'Okänt antal'}</div>
+            {match?.playStyle && <div className="play-style-description">Spelstil: {match.playStyle}</div>}
           </div>
+        </div>
+      </section>
 
-          {match.playStyle && (
-            <div className="play-style-info">
-              <div className="play-style-badge">
-                {match.playStyle === 'spontanspel' && '⚽'}
-                {match.playStyle === 'träning' && '🏃'}
-                {match.playStyle === 'match' && '🏆'}
-                <span>{match.playStyle.charAt(0).toUpperCase() + match.playStyle.slice(1)}</span>
+      {/* Matchinfo card: summary of match location and settings (mobile-friendly) */}
+      <section className="match-info-card">
+        <div className="match-info-inner">
+          { (match?.area || match?.location) && (
+            <div className="info-row">
+              <div className="info-icon">📍</div>
+              <div className="info-text">{match?.area || match?.location}</div>
+            </div>
+          )}
+
+          { match?.surface && (
+            <div className="info-row">
+              <div className="info-icon">🌱</div>
+              <div className="info-text">{match.surface}</div>
+            </div>
+          )}
+
+          { typeof match?.requiresFootballShoes === 'boolean' && (
+            <div className="info-row">
+              <div className="info-icon">👟</div>
+              <div className="info-text">{match.requiresFootballShoes ? 'Fotbollsskor krävs' : 'Fotbollsskor behövs ej'}</div>
+            </div>
+          )}
+
+          { typeof match?.hasBall === 'boolean' && (
+            <div className="info-row">
+              <div className="info-icon">⚽</div>
+              <div className="info-text">{match.hasBall ? 'Boll finns på plats' : 'Ta med boll'}</div>
+            </div>
+          )}
+
+          { match?.playStyle && (
+            <div className="info-row">
+              <div className="info-icon">🎯</div>
+              <div className="info-text">{match.playStyle.charAt(0).toUpperCase() + match.playStyle.slice(1)}</div>
+            </div>
+          )}
+
+          { match?.description && (
+            <div className="info-row">
+              <div className="info-icon">🗒️</div>
+              <div className="info-text">{match.description}</div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="players-section">
+        <h2 className="section-title">Spelare</h2>
+        <p className="section-subtitle">Anmälda spelare för matchen</p>
+
+        <div className="players-grid">
+          {(() => {
+            const players = match?.players || [];
+            const max = match?.maxPlayers || 0;
+            const remaining = max > players.length ? max - players.length : 0;
+
+            const nodes: JSX.Element[] = [];
+
+            // Player cards
+            players.forEach((player: any) => {
+              const playerName = player.name || player.display_name || player.profile?.name || 'Okänt namn';
+              const isYou = player.id === currentUserId;
+
+              nodes.push(
+                <div className="player-card" key={player.id}>
+                  <PlayerAvatar name={playerName} />
+                  <div className="player-name">
+                    <span className="player-name-label">{playerName}</span>
+                    {isYou && <span className="you-badge">Du</span>}
+                  </div>
+                </div>
+              );
+            });
+
+            // Discreet empty slot placeholders
+            if (remaining > 0) {
+              for (let i = 0; i < remaining; i++) {
+                nodes.push(
+                  <div className="player-card player-card-empty player-empty" key={`empty-${i}`}>
+                    <div className="player-avatar player-avatar-empty">⚪</div>
+                    <div className="player-name player-name-empty">Ledig</div>
+                  </div>
+                );
+              }
+            }
+
+            // If no players and no max defined, show placeholder
+            if (players.length === 0 && max === 0) {
+              nodes.push(
+                <div className="player-card player-card-empty" key={`empty-none`}>
+                  <div className="player-avatar player-avatar-empty">⚪</div>
+                  <div className="player-name player-name-empty">Inga spelare ännu</div>
+                </div>
+              );
+            }
+
+            return nodes;
+          })()}
+        </div>
+
+        {/* Remaining spots summary (replaces individual empty cards) */}
+        {(() => {
+          const players = match?.players || [];
+          const max = match?.maxPlayers || 0;
+          const remaining = max > players.length ? max - players.length : 0;
+          if (max > 0) {
+            return (
+              <div className="remaining-spots">
+                {remaining > 0 ? `${remaining} platser kvar` : 'Fullt'}
               </div>
-              <p className="play-style-description">
-                {match.playStyle === 'spontanspel' && 'Alla nivåer välkomna'}
-                {match.playStyle === 'träning' && 'Fokus på tempo och spel'}
-                {match.playStyle === 'match' && 'Seriöst tempo'}
-              </p>
-            </div>
-          )}
-        </section>
+            );
+          }
+          return null;
+        })()}
+        {/* Short helper texts to guide the user */}
+        {(() => {
+          if (!players || players.length === 0) {
+            return <p className="helper-note empty-helper">Inga spelare ännu — bli den första!</p>;
+          }
 
-        <section className="info-section">
-          <div className="info-grid">
-            <div className="info-card">
-              <span className="info-label">Underlag</span>
-              <span className="info-value">{match.surface}</span>
-            </div>
-            <div className="info-card">
-              <span className="info-label">Utrustning</span>
-              <span className="info-value">
-                {match.hasBall ? 'Boll finns på plats' : 'Boll saknas'}
-              </span>
+          if (maxPlayers > 0 && remainingSpots === 0) {
+            return <p className="helper-note full-helper">Matchen är full</p>;
+          }
+
+          return null;
+        })()}
+      </section>
+
+      <footer className="page-footer">
+      </footer>
+      {/* CTA section (mobile-first): primary action + spots/status */}
+      <div className="action-bar join-bar" role="region" aria-label="Join actions">
+        {!isMember ? (
+          <div className="cta-not-member">
+            <button
+              className={`join-primary ${isFull || !currentUserId ? 'join-disabled' : ''}`}
+              onClick={handleJoin}
+              disabled={isFull || !currentUserId}
+            >
+              {isFull ? 'Fullt — kan inte anmäla' : 'Gå med i match'}
+            </button>
+
+            <div className="cta-spots">
+              {maxPlayers > 0 ? `${remainingSpots} platser kvar` : ''}
             </div>
           </div>
-
-          {match.requiresFootballShoes && (
-            <div className="footwear-notice">
-              <span className="footwear-icon">👟</span>
-              <span className="footwear-text">Fotbollsskor krävs</span>
-            </div>
-          )}
-
-          {match.description && (
-            <div className="description-card">
-              <p className="description-text">{match.description}</p>
-            </div>
-          )}
-        </section>
-
-        {currentUser && (
-          <section className="join-section">
-            {!hasJoined ? (
-              <button 
-                onClick={handleJoinMatch} 
-                className="btn-join"
-                disabled={isFull}
-              >
-                {isFull ? 'Matchen är full' : 'Gå med i matchen'}
-              </button>
-            ) : (
-              <button onClick={handleLeaveMatch} className="btn-leave">
-                Lämna matchen
-              </button>
-            )}
-            
+        ) : (
+          <div className="cta-member" style={{width: '100%'}}>
+            <div className="member-status">Du är anmäld</div>
+            <button className="leave-primary" onClick={handleLeave}>Lämna match</button>
             {isCreator && (
-              <>
-                <button onClick={handleShare} className="btn-share">
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M15 6.66667C16.3807 6.66667 17.5 5.54738 17.5 4.16667C17.5 2.78595 16.3807 1.66667 15 1.66667C13.6193 1.66667 12.5 2.78595 12.5 4.16667C12.5 5.54738 13.6193 6.66667 15 6.66667Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M5 12.5C6.38071 12.5 7.5 11.3807 7.5 10C7.5 8.61929 6.38071 7.5 5 7.5C3.61929 7.5 2.5 8.61929 2.5 10C2.5 11.3807 3.61929 12.5 5 12.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M15 18.3333C16.3807 18.3333 17.5 17.214 17.5 15.8333C17.5 14.4526 16.3807 13.3333 15 13.3333C13.6193 13.3333 12.5 14.4526 12.5 15.8333C12.5 17.214 13.6193 18.3333 15 18.3333Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7.15833 11.175L12.85 14.6583" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M12.8417 5.34167L7.15833 8.825" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Dela match
-                </button>
-                <p className="share-helper-text">
-                  Dela länken med kompisar – de kan gå med direkt utan konto.
-                </p>
-              </>
+              <button className="btn-delete-discrete" onClick={handleDelete}>Radera</button>
             )}
-          </section>
-        )}
-
-        {showShareConfirmation && (
-          <div className="share-confirmation">
-            Länk kopierad – dela med dina vänner
           </div>
         )}
-
-        <section className="players-section">
-          <h2 className="section-title">Spelare</h2>
-          <p className="section-subtitle">{players.length} anmälda</p>
-          <div className="players-grid">
-            {players.map((player) => (
-              <div key={player.id} className="player-card">
-                <PlayerAvatar name={player.name} />
-                <span className="player-name">{player.name}</span>
-              </div>
-            ))}
-            {emptySlotArray.map((index) => (
-              <div key={`empty-${index}`} className="player-card player-card-empty">
-                <div className="player-avatar player-avatar-empty">?</div>
-                <span className="player-name player-name-empty">Ledig</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {players.length >= 4 && (
-          <section className="ai-section">
-            <div className="ai-header">
-              <span className="ai-icon">🤖</span>
-              <h2 className="ai-title">Coach AI</h2>
-            </div>
-            <p className="ai-description">
-              Låt mig analysera spelarna, skapa jämna lag och ta fram vinnande taktik.
-            </p>
-            
-            {!generatedTeams ? (
-              isCreator ? (
-                <button onClick={handleGenerateTeams} className="btn-generate">
-                  Generera laguppställning
-                </button>
-              ) : (
-                <p className="ai-note">
-                  Bara matchskaparen kan generera lag.
-                </p>
-              )
-            ) : (
-              <div className="teams-container">
-                <div className="team-column">
-                  <h3 className="team-title">Lag A</h3>
-                  <div className="team-players">
-                    {generatedTeams[0].map((player) => (
-                      <div key={player.id} className="team-player">
-                        <PlayerAvatar name={player.name} />
-                        <span>{player.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="team-column">
-                  <h3 className="team-title">Lag B</h3>
-                  <div className="team-players">
-                    {generatedTeams[1].map((player) => (
-                      <div key={player.id} className="team-player">
-                        <PlayerAvatar name={player.name} />
-                        <span>{player.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <button onClick={handleResetTeams} className="btn-reset">
-                  Återställ
-                </button>
-              </div>
-            )}
-          </section>
-        )}
+      </div>
       </div>
     </div>
   );
