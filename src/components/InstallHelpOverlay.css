@@ -1,0 +1,25 @@
+.install-help-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 12000;
+}
+
+.install-help-card {
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  max-width: 92%;
+  width: 360px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  color: #111;
+}
+
+.install-help-card h3 { margin: 0 0 8px 0; font-size: 16px; }
+.install-help-card p { margin: 0 0 12px 0; font-size: 14px; color: #333; }
+.install-help-actions { display:flex; justify-content:flex-end; }
+.install-help-close { background:#0b6b4f; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+.install-help-close:focus { outline:2px solid rgba(11,107,79,0.18); }
