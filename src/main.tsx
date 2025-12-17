@@ -9,10 +9,6 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// Register a minimal service worker in production only
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch((err) => {
-    // swallow registration errors to avoid impacting app
-    console.warn('Service worker registration failed:', err);
-  });
-}
+// Note: service worker registration removed to ensure identical runtime
+// behavior between development and production builds (avoids cached
+// older bundles causing UI differences).
