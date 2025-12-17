@@ -113,10 +113,10 @@ function MatchDetailsPage() {
       {/* Matchinfo card: summary of match location and settings (mobile-friendly) */}
       <section className="match-info-card">
         <div className="match-info-inner">
-          { (match?.area || match?.location) && (
+          { (match?.area || match?.city) && (
             <div className="info-row">
               <div className="info-icon">📍</div>
-              <div className="info-text">{match?.area || match?.location}</div>
+              <div className="info-text">{match?.area || match?.city}</div>
             </div>
           )}
 
@@ -167,7 +167,7 @@ function MatchDetailsPage() {
             const max = match?.maxPlayers || 0;
             const remaining = max > players.length ? max - players.length : 0;
 
-            const nodes: JSX.Element[] = [];
+            const nodes: any[] = [];
 
             // Player cards
             players.forEach((player: any) => {

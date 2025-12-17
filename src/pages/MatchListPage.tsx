@@ -105,7 +105,7 @@ function MatchListPage() {
   };
   
   const now = new Date();
-  const maxTime = new Date(now.getTime() + 48 * 60 * 60 * 1000); // +48 hours
+  
   
   console.log('All matches:', matches);
   console.log('Favorite areas:', favoriteAreas);

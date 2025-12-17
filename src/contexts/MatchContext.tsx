@@ -25,9 +25,7 @@ function isMatchExpired(match: Match): boolean {
   return new Date() > expiryTime;
 }
 
-function filterActiveMatches(matches: Match[]): Match[] {
-  return matches.filter(match => !isMatchExpired(match));
-}
+// filterActiveMatches was unused; removed to avoid unused-symbol TypeScript error.
 
 export function MatchProvider({ children }: { children: ReactNode }) {
   const USER_STORAGE_KEY = 'grus-gras-user';
@@ -92,6 +90,28 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   // Initial fetch
   useEffect(() => {
     fetchMatches();
+  }, []);
+
+  // Auto-refresh matches every 10 seconds while the app is open.
+  // Uses a ref to the latest `fetchMatches` to avoid recreating the interval.
+  const fetchRef = useRef(fetchMatches);
+  useEffect(() => {
+    fetchRef.current = fetchMatches;
+  }, [fetchMatches]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      // best-effort refresh; ignore errors
+      try {
+        fetchRef.current().catch(() => {});
+      } catch (e) {
+        // ignore
+      }
+    }, 10000);
+
+    return () => {
+      clearInterval(id);
+    };
   }, []);
 
   // Rensa utgångna matcher var 60:e sekund
@@ -505,7 +525,7 @@ if (import.meta.env.DEV) {
     if (typeof window !== 'undefined') {
       // attach placeholders; real functions will be wired when MatchProvider mounts
       (window as any).__deleteEmptyMatches = async () => console.warn('Waiting for MatchProvider to mount...');
-      (window as any).__deleteMatchesOlderThan = async (days: number) => console.warn('Waiting for MatchProvider to mount...');
+      (window as any).__deleteMatchesOlderThan = async (_days?: number) => console.warn('Waiting for MatchProvider to mount...');
       (window as any).__deletePastMatches = async () => console.warn('Waiting for MatchProvider to mount...');
           (window as any).__deleteOrphanMatches = async () => console.warn('Waiting for MatchProvider to mount...');
     }
