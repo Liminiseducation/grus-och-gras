@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { User } from '../types';
 import './Header.css';
+import InstallHint from './InstallHint';
+import InstallHintIOS from './InstallHintIOS';
 
 const USER_STORAGE_KEY = 'grus-gras-user';
 
@@ -28,6 +30,7 @@ export default function Header() {
   };
 
   return (
+    <>
     <header className="app-header">
       <div className="header-content">
         <div className="header-text">
@@ -55,5 +58,8 @@ export default function Header() {
         </div>
       </div>
     </header>
+    <InstallHint />
+    <InstallHintIOS />
+    </>
   );
 }
