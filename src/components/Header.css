@@ -31,6 +31,20 @@
   font-weight: 400;
 }
 
+.install-link {
+  margin-top: 6px;
+  display: inline-block;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+.install-link:focus { outline: 2px solid rgba(255,255,255,0.18); }
+
 .user-menu-container {
   position: relative;
 }

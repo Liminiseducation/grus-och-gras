@@ -15,3 +15,24 @@
   flex-direction: column;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
 }
+
+.app-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #eef0f2;
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  background: transparent;
+}
+
+.footer-install-link {
+  background: transparent;
+  border: none;
+  color: #0b6b4f;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.footer-install-link:focus { outline: 2px solid rgba(11,107,79,0.12); }

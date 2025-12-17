@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import type { User } from '../types';
 import './Header.css';
-import InstallHelpOverlay from './InstallHelpOverlay';
 
 const USER_STORAGE_KEY = 'grus-gras-user';
 
 export default function Header() {
   const [showMenu, setShowMenu] = useState(false);
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
   
   const userJson = localStorage.getItem(USER_STORAGE_KEY);
   const user: User | null = userJson ? JSON.parse(userJson) : null;
@@ -53,15 +51,13 @@ export default function Header() {
               <button className="user-menu-logout" onClick={handleClearUser}>
                 Byt namn
               </button>
-              <button className="user-menu-install" onClick={() => setShowInstallHelp(true)}>
-                Installera på iPhone
-              </button>
+              
             </div>
           )}
         </div>
       </div>
     </header>
-    {showInstallHelp && <InstallHelpOverlay onClose={() => setShowInstallHelp(false)} />}
+    
     </>
   );
 }
