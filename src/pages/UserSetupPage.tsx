@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { User } from '../types';
 import './UserSetupPage.css';
+import InstallHelpOverlay from '../components/InstallHelpOverlay';
 
 const USER_STORAGE_KEY = 'grus-gras-user';
 
@@ -10,6 +11,7 @@ function generateUserId(): string {
 }
 
 export default function UserSetupPage() {
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [step, setStep] = useState<'name' | 'city'>('name');
   const [name, setName] = useState('');
   const [homeCity, setHomeCity] = useState('');
@@ -62,6 +64,10 @@ export default function UserSetupPage() {
                   required
                 />
 
+                <button type="button" className="install-inline-link" onClick={() => setShowInstallHelp(true)}>
+                  Installera på iPhone
+                </button>
+
                 <button 
                   type="submit" 
                   className="user-setup-button"
@@ -104,6 +110,7 @@ export default function UserSetupPage() {
           )}
         </div>
       </div>
+      {showInstallHelp && <InstallHelpOverlay onClose={() => setShowInstallHelp(false)} />}
     </div>
   );
 }

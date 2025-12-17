@@ -53,6 +53,20 @@
   gap: 16px;
 }
 
+.install-inline-link {
+  background: transparent;
+  border: none;
+  color: #0b6b4f;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px 0;
+  align-self: center;
+}
+
+.install-inline-link:focus { outline: 2px solid rgba(11,107,79,0.12); border-radius: 6px }
+
 .user-setup-input {
   width: 100%;
   padding: 16px;
@@ -153,5 +167,9 @@
   .area-button {
     font-size: 15px;
     padding: 18px 12px;
+  }
+
+  .user-setup-content {
+    padding: 28px 16px;
   }
 }
