@@ -45,6 +45,21 @@
 
 .install-link:focus { outline: 2px solid rgba(255,255,255,0.18); }
 
+.global-install-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  text-decoration: underline;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.global-install-link:focus { outline: 2px solid rgba(255,255,255,0.18); border-radius: 6px }
+
 .user-menu-container {
   position: relative;
 }
