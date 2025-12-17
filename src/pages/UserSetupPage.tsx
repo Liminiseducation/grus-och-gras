@@ -64,8 +64,14 @@ export default function UserSetupPage() {
                   required
                 />
 
-                <button type="button" className="install-inline-link" onClick={() => setShowInstallHelp(true)}>
-                  Installera på iPhone
+                <button
+                  id="install-app-link"
+                  type="button"
+                  className="install-inline-link"
+                  onClick={() => setShowInstallHelp(true)}
+                  aria-label="Install app help"
+                >
+                  Install app
                 </button>
 
                 <button 
