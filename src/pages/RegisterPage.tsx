@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMatches } from '../contexts/MatchContext';
 import './RegisterPage.css';
@@ -13,7 +13,6 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const { setCurrentUser } = useMatches();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

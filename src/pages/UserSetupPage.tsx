@@ -1,12 +1,10 @@
 import { useState, type FormEvent, useEffect } from 'react';
-import { normalizeArea } from '../utils/normalizeArea';
 import type { User } from '../types';
 import './UserSetupPage.css';
 import InstallHelpOverlay from '../components/InstallHelpOverlay';
 import { useMatches } from '../contexts/MatchContext';
 import { supabase } from '../lib/supabase';
 
-const FAVORITE_AREAS_KEY = 'grus-gras-favorite-areas';
 
 export default function UserSetupPage() {
   const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -39,8 +37,8 @@ export default function UserSetupPage() {
     try {
       // Try updating both common user/profile tables so this works for both
       // the simple `users` table and Supabase `profiles` table.
-      supabase.from('profiles').update({ home_city: updatedUser.homeCity }).eq('id', currentUser.id).then(() => {}).catch(() => {});
-      supabase.from('users').update({ home_city: updatedUser.homeCity }).eq('id', currentUser.id).then(() => {}).catch(() => {});
+      await supabase.from('profiles').update({ home_city: updatedUser.homeCity }).eq('id', currentUser.id);
+      await supabase.from('users').update({ home_city: updatedUser.homeCity }).eq('id', currentUser.id);
     } catch (e) {
       console.warn('Could not persist homeCity to backend:', e);
     }

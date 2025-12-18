@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useMatches } from '../contexts/MatchContext';
 import { normalizeArea } from '../utils/normalizeArea';
 import MatchCard from '../components/MatchCard';
@@ -9,15 +8,10 @@ import { supabase } from '../lib/supabase';
 
 function MatchListPage() {
   const { matches, loading, currentUser, setCurrentUser } = useMatches();
-  const [showChangeCityPrompt, setShowChangeCityPrompt] = useState(false);
-  const [cityInput, setCityInput] = useState('');
   // Get user's home city from app state (persistent authenticated user)
   const homeCity = currentUser?.homeCity || '';
   const currentUserId = currentUser?.id || '';
   
-  useEffect(() => {
-    try { setCityInput(homeCity); } catch (e) {}
-  }, [homeCity]);
   
   const now = new Date();
   

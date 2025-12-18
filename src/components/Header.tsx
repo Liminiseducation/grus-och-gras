@@ -5,7 +5,6 @@ import InstallHelpOverlay from './InstallHelpOverlay';
 import { useMatches } from '../contexts/MatchContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useEffect } from 'react';
 
 export default function Header() {
   const [showMenu, setShowMenu] = useState(false);
