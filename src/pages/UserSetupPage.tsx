@@ -12,26 +12,27 @@ export default function UserSetupPage() {
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [homeCity, setHomeCity] = useState('');
   const navigate = useNavigate();
-  const { currentUser, setCurrentUser, setSelectedArea } = useMatches();
+  const { currentUser, setCurrentUser, setSelectedArea, authInitialized } = useMatches();
 
-  // If there's no authenticated persistent user, redirect to /auth
+  // Wait for auth initialization. If initialized and no user, redirect to /auth.
   useEffect(() => {
+    if (!authInitialized) return;
     if (!currentUser) {
-      try { console.info('[setup] no currentUser, redirecting to /auth'); } catch (e) {}
+      try { console.info('[setup] no currentUser after init, redirecting to /auth'); } catch (e) {}
       navigate('/auth', { replace: true });
-    } else {
-      // Pre-fill home city from existing user profile when available
-      if (currentUser.homeCity) setHomeCity(currentUser.homeCity);
+      return;
     }
-  }, [currentUser, navigate]);
+    // Pre-fill home city from existing user profile when available
+    if (currentUser.homeCity) setHomeCity(currentUser.homeCity);
+  }, [authInitialized, currentUser, navigate]);
 
   const handleCitySubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!homeCity.trim()) return;
 
+    // Do nothing if the authenticated user isn't ready yet
     if (!currentUser) {
-      try { console.error('[setup] cannot save setup without authenticated user'); } catch (e) {}
-      navigate('/auth', { replace: true });
+      try { console.warn('[setup] submit ignored: currentUser not ready'); } catch (e) {}
       return;
     }
 
@@ -96,7 +97,7 @@ export default function UserSetupPage() {
               <button
                 type="submit"
                 className="user-setup-button"
-                disabled={!homeCity.trim()}
+                disabled={!homeCity.trim() || !currentUser}
               >
                 Fortsätt
               </button>

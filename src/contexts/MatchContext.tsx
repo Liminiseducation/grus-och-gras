@@ -10,6 +10,8 @@ interface MatchContextType {
   setSelectedArea: (area: string) => void;
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  // true when we've completed reading any persisted auth info from storage
+  authInitialized: boolean;
   addMatch: (match: Omit<Match, 'id' | 'players' | 'createdBy'>, createdBy?: string, creatorName?: string) => Promise<void>;
   joinMatch: (matchId: string, player: { id: string; name: string }) => Promise<void>;
   leaveMatch: (matchId: string, playerId: string) => Promise<void>;
@@ -62,6 +64,11 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+
+  // Track whether we've completed initial auth read (so UI can distinguish
+  // between "no user" and "not yet loaded"). This becomes true after
+  // mount so components can show a loading state until it's set.
+  const [authInitialized, setAuthInitialized] = useState<boolean>(false);
 
   const setCurrentUser = (user: User | null) => {
     // Ensure role defaults to 'user' when setting
@@ -608,6 +615,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         } catch (e) {
           // ignore
         }
+        // mark auth as initialized after mount/read
+        try { setAuthInitialized(true); } catch (e) { /* ignore */ }
       };
     }
     return;
@@ -637,6 +646,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       deleteMatch,
       deletePastMatches,
       deleteOrphanMatches,
+      authInitialized,
       refreshMatches: fetchMatches,
       // DEV helpers (exported for manual invocation only)
       deleteEmptyMatches,
