@@ -1,6 +1,6 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import { normalizeArea } from '../utils/normalizeArea';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { User } from '../types';
 import './UserSetupPage.css';
 import InstallHelpOverlay from '../components/InstallHelpOverlay';
@@ -12,8 +12,6 @@ export default function UserSetupPage() {
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [homeCity, setHomeCity] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as { from?: string })?.from || '/';
   const { currentUser, setCurrentUser, setSelectedArea } = useMatches();
 
   // If there's no authenticated persistent user, redirect to /auth
@@ -67,7 +65,8 @@ export default function UserSetupPage() {
       // ignore
     }
 
-    navigate(from, { replace: true });
+    // Navigate to main app view (matches). Use root to avoid redirect loops.
+    navigate('/', { replace: true });
   };
 
   return (
