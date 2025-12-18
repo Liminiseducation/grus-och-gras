@@ -1,8 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useMatches } from '../contexts/MatchContext';
 
-const USER_STORAGE_KEY = 'grus-gras-user';
-
 interface UserGateProps {
   children: React.ReactNode;
 }

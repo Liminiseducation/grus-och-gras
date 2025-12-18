@@ -49,7 +49,7 @@ export async function verifyPassword(stored: string, password: string): Promise<
   if (!stored) return false;
   const parts = stored.split('$');
   if (parts.length !== 2) return false;
-  const [saltHex, hashHex] = parts;
+  const [saltHex] = parts;
   const candidate = await hashPassword(password, saltHex);
   return candidate === stored;
 }

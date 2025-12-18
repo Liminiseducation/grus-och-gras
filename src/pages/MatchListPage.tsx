@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useMatches } from '../contexts/MatchContext';
 import { normalizeArea } from '../utils/normalizeArea';
-import type { User } from '../types';
 import MatchCard from '../components/MatchCard';
 import Header from '../components/Header';
 import FloatingActionButton from '../components/FloatingActionButton';
 import './MatchListPage.css';
 
-const USER_STORAGE_KEY = 'grus-gras-user';
 const FAVORITE_AREAS_KEY = 'grus-gras-favorite-areas';
 const SELECTED_AREA_KEY = 'grus-gras-selected-area';
 
