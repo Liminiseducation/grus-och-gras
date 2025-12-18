@@ -71,7 +71,7 @@ export default function AdminPage() {
   const filteredUsers = users.filter(u => {
     if (!userFilter) return true;
     const q = userFilter.toLowerCase();
-    return (u.username || '').toLowerCase().includes(q) || (u.name || '').toLowerCase().includes(q) || (u.id || '').toLowerCase().includes(q);
+    return (u.username || '').toLowerCase().includes(q) || (u.id || '').toLowerCase().includes(q);
   });
 
   return (
@@ -107,7 +107,7 @@ export default function AdminPage() {
           {loadingUsers ? <div>Laddar...</div> : filteredUsers.map(u => (
             <div key={u.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, borderBottom: '1px solid #eee' }}>
               <div style={{ flex: 1 }}>
-                <div><strong>{u.username || u.name}</strong> <small style={{ color: '#666' }}>{u.role}</small></div>
+                <div><strong>{u.username}</strong> <small style={{ color: '#666' }}>{u.role}</small></div>
                 <div style={{ fontSize: 12 }}>{u.id}</div>
               </div>
               <div>

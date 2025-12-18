@@ -255,7 +255,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         has_ball: matchData.hasBall,
         requires_football_shoes: matchData.requiresFootballShoes,
         play_style: matchData.playStyle,
-        players: createdBy && creatorName ? [{ id: createdBy, name: (creatorName && creatorName.length > 1) ? creatorName : (localStorage.getItem(USER_STORAGE_KEY) ? JSON.parse(localStorage.getItem(USER_STORAGE_KEY) as string).name : creatorName) }] : [],
+        players: createdBy && creatorName ? [{ id: createdBy, name: (creatorName && creatorName.length > 1) ? creatorName : (localStorage.getItem(USER_STORAGE_KEY) ? JSON.parse(localStorage.getItem(USER_STORAGE_KEY) as string).username : creatorName) }] : [],
         area: matchData.area,
         city: matchData.city,
         latitude: matchData.latitude,
@@ -327,8 +327,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         try {
           const userJson = localStorage.getItem(USER_STORAGE_KEY);
           const storedUser = userJson ? JSON.parse(userJson) : null;
-          if (storedUser?.name) {
-            fullName = storedUser.name;
+          if (storedUser?.username) {
+            fullName = storedUser.username;
           }
         } catch (e) {
           // ignore parse errors

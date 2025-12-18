@@ -52,7 +52,7 @@ function CreateMatchPage() {
         requiresFootballShoes: formData.requiresFootballShoes,
         playStyle: formData.playStyle || undefined,
         description: formData.description || undefined,
-      }, user?.id, user?.name);
+      }, user?.id, user?.username);
       
       console.log('Match created, navigating to home');
       navigate('/');

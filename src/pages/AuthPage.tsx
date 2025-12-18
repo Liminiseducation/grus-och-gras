@@ -110,11 +110,16 @@ export default function AuthPage() {
         return;
       }
 
-      const stored = { id: data.id, username: data.username, role: (data.role || 'user') };
+      const stored = { id: data.id, username: data.username, role: (data.role || 'user'), homeCity: data.home_city || data.homeCity || undefined };
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(stored));
-      setCurrentUser({ id: data.id, username: data.username, role: (data.role || 'user') });
+      setCurrentUser({ id: data.id, username: data.username, role: (data.role || 'user'), homeCity: data.home_city || data.homeCity || undefined });
       try { console.info('[auth] login successful, id saved:', data.id); } catch (e) {}
-      navigate(from, { replace: true });
+      // If the user doesn't have a home city yet, go to setup (area selection)
+      if (!data.home_city && !data.homeCity) {
+        navigate('/setup', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       console.error(err);
       setError('Ett oväntat fel uppstod');

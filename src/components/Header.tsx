@@ -48,14 +48,14 @@ export default function Header() {
           <button 
             className="user-button" 
             onClick={() => setShowMenu(!showMenu)}
-            title={user?.name || 'Användare'}
+            title={user?.username || 'Användare'}
           >
             {getInitials()}
           </button>
           {showMenu && (
             <div className="user-menu">
               <div className="user-menu-header">
-                <div className="user-menu-name">{user?.name || 'Användare'}</div>
+                <div className="user-menu-name">{user?.username || 'Användare'}</div>
               </div>
               <button className="user-menu-logout" onClick={handleClearUser}>
                 Byt namn

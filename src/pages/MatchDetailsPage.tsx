@@ -30,7 +30,7 @@ function MatchDetailsPage() {
     try {
       console.log('Join clicked', { matchId: match?.id, userId: currentUserId });
       if (!match || !joinMatch) return;
-      await joinMatch(match.id, { id: currentUserId, name: currentUser?.name || '' });
+      await joinMatch(match.id, { id: currentUserId, name: currentUser?.username || '' });
     } catch (err) {
       console.error('Error joining:', err);
     }
