@@ -37,12 +37,27 @@ function isMatchExpired(match: Match): boolean {
 export function MatchProvider({ children }: { children: ReactNode }) {
   const USER_STORAGE_KEY = 'grus-gras-user';
   const SELECTED_AREA_KEY = 'grus-gras-selected-area';
+  const FAVORITE_AREAS_KEY = 'grus-gras-favorite-areas';
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedArea, _setSelectedArea] = useState<string>(() => {
     try {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_AREA_KEY) : null;
-      return stored ? normalizeArea(stored) : '';
+      if (typeof window === 'undefined') return '';
+      const stored = localStorage.getItem(SELECTED_AREA_KEY);
+      if (!stored) return '';
+      const normalized = normalizeArea(stored);
+
+      // Validate persisted selection against stored favorites to avoid
+      // accepting stale/legacy values. Only accept a persisted selected
+      // area if it matches one of the user's favorite areas (best-effort).
+      const favJson = localStorage.getItem(FAVORITE_AREAS_KEY);
+      const storedFavorites: string[] = favJson ? JSON.parse(favJson) : [];
+      const normalizedFavs = storedFavorites.map(a => normalizeArea(a));
+
+      if (normalized && normalizedFavs.includes(normalized)) return normalized;
+
+      // Otherwise, do not auto-select from legacy storage.
+      return '';
     } catch (e) {
       return '';
     }

@@ -15,7 +15,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, name?: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, name?: string) => Promise<{ error: AuthError | null; user?: any; profile?: any }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Return created auth user and profile (if available) so callers can update app state
   const signUp = async (email: string, password: string, name?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -89,21 +90,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) return { error };
 
-      // Profile will be created automatically via database trigger
-      // or you can create it manually here
-      if (data.user) {
+      let createdProfile: any = null;
+      if (data?.user) {
         // Optional: Create profile manually if no trigger exists
-        await supabase.from('profiles').insert({
-          id: data.user.id,
-          email: data.user.email,
-          name: name || '',
-          role: 'user',
-        });
+        const { data: profileData, error: insertErr } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            name: name || '',
+            role: 'user',
+          })
+          .select()
+          .maybeSingle();
+
+        if (!insertErr && profileData) createdProfile = profileData;
+        // If insert failed (e.g., trigger already created profile), try to read it
+        if (!createdProfile) {
+          try {
+            const { data: fetched } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+            if (fetched) createdProfile = fetched;
+          } catch (e) {
+            // ignore
+          }
+        }
       }
 
-      return { error: null };
+      return { error: null, user: data?.user ?? null, profile: createdProfile } as any;
     } catch (error) {
-      return { error: error as AuthError };
+      return { error: error as AuthError } as any;
     }
   };
 

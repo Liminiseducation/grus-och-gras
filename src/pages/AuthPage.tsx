@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { useMatches } from '../contexts/MatchContext';
 import { supabase } from '../lib/supabase';
 import { hashPassword, verifyPassword } from '../utils/password';
@@ -13,9 +12,6 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as { from?: string })?.from || '/';
   const { setCurrentUser } = useMatches();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -62,9 +58,8 @@ export default function AuthPage() {
       const stored = { id: data.id, username: data.username, role: (data.role || 'user') };
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(stored));
       setCurrentUser({ id: data.id, username: data.username, role: (data.role || 'user') });
-      // Log the successful registration and navigation
+      // Log successful registration; App-level gate will show setup as needed
       try { console.info('[auth] registered user, id saved:', data.id); } catch (e) {}
-      navigate('/setup', { replace: true });
     } catch (err) {
       console.error(err);
       setError('Ett oväntat fel uppstod');
@@ -114,12 +109,7 @@ export default function AuthPage() {
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(stored));
       setCurrentUser({ id: data.id, username: data.username, role: (data.role || 'user'), homeCity: data.home_city || data.homeCity || undefined });
       try { console.info('[auth] login successful, id saved:', data.id); } catch (e) {}
-      // If the user doesn't have a home city yet, go to setup (area selection)
-      if (!data.home_city && !data.homeCity) {
-        navigate('/setup', { replace: true });
-      } else {
-        navigate(from, { replace: true });
-      }
+      // App-level gate will choose whether to show setup or main app
     } catch (err) {
       console.error(err);
       setError('Ett oväntat fel uppstod');

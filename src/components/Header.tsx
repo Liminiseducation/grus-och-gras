@@ -16,7 +16,6 @@ export default function Header() {
   const handleClearUser = () => {
     // Clearing user logs out to auth; persistent user removed
     setCurrentUser(null);
-    navigate('/auth', { replace: true });
   };
 
   const getInitials = () => {

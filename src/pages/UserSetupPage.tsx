@@ -1,6 +1,5 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import { normalizeArea } from '../utils/normalizeArea';
-import { useNavigate } from 'react-router-dom';
 import type { User } from '../types';
 import './UserSetupPage.css';
 import InstallHelpOverlay from '../components/InstallHelpOverlay';
@@ -11,20 +10,13 @@ const FAVORITE_AREAS_KEY = 'grus-gras-favorite-areas';
 export default function UserSetupPage() {
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [homeCity, setHomeCity] = useState('');
-  const navigate = useNavigate();
   const { currentUser, setCurrentUser, setSelectedArea, authInitialized } = useMatches();
-
-  // Wait for auth initialization. If initialized and no user, redirect to /auth.
+  // Wait for auth initialization. App-level gate will handle redirecting to /auth
   useEffect(() => {
     if (!authInitialized) return;
-    if (!currentUser) {
-      try { console.info('[setup] no currentUser after init, redirecting to /auth'); } catch (e) {}
-      navigate('/auth', { replace: true });
-      return;
-    }
     // Pre-fill home city from existing user profile when available
-    if (currentUser.homeCity) setHomeCity(currentUser.homeCity);
-  }, [authInitialized, currentUser, navigate]);
+    if (currentUser?.homeCity) setHomeCity(currentUser.homeCity);
+  }, [authInitialized, currentUser]);
 
   const handleCitySubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -61,13 +53,11 @@ export default function UserSetupPage() {
     // Set selected area to the user's home city so onboarding completes
     try {
       const normalized = normalizeArea(updatedUser.homeCity || '');
+      // Persist selection — App-level router will detect this and proceed.
       setSelectedArea(normalized);
     } catch (e) {
       // ignore
     }
-
-    // Navigate to main app view (matches). Use root to avoid redirect loops.
-    navigate('/', { replace: true });
   };
 
   return (
@@ -97,7 +87,7 @@ export default function UserSetupPage() {
               <button
                 type="submit"
                 className="user-setup-button"
-                disabled={!homeCity.trim() || !currentUser}
+                disabled={!homeCity.trim() || !currentUser || !authInitialized}
               >
                 Fortsätt
               </button>

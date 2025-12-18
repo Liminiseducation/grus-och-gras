@@ -1,4 +1,3 @@
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -6,48 +5,22 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
+// Legacy protected route wrapper — do not perform navigation here; instead
+// render a blocking message when auth state is not satisfied. The app-level
+// router should be the single source of truth for onboarding/routing.
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const { user, profile, loading } = useAuth();
-  const location = useLocation();
 
-  // Show loading spinner while checking auth
   if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '100vh',
-        color: 'var(--color-primary)'
-      }}>
-        <div>Laddar...</div>
-      </div>
-    );
+    return <div style={{ padding: 24 }}>Laddar…</div>;
   }
 
-  // Redirect to login if not authenticated
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <div style={{ padding: 24 }}>Du måste vara inloggad för att se denna sida.</div>;
   }
 
-  // Check admin requirement
   if (requireAdmin && profile?.role !== 'admin') {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '100vh',
-        flexDirection: 'column',
-        gap: '16px',
-        padding: '20px',
-        textAlign: 'center'
-      }}>
-        <h2>Åtkomst nekad</h2>
-        <p>Du har inte behörighet att se denna sida.</p>
-        <a href="/app" style={{ color: 'var(--color-primary)' }}>Tillbaka till startsidan</a>
-      </div>
-    );
+    return <div style={{ padding: 24 }}>Åtkomst nekad — administratör krävs.</div>;
   }
 
   return <>{children}</>;

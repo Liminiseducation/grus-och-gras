@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useMatches } from '../contexts/MatchContext';
 import './RegisterPage.css';
 
 export default function RegisterPage() {
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
+  const { setCurrentUser } = useMatches();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -31,10 +33,20 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const { error } = await signUp(email, password, name);
-      if (error) {
-        setError(error.message);
+      const res = await signUp(email, password, name);
+      if (res.error) {
+        setError(res.error.message);
       } else {
+        // If profile info was returned, set app-level currentUser using same shape as login
+        const profile = (res as any).profile;
+        const userObj = profile
+          ? { id: profile.id, username: profile.name || profile.email || undefined, role: profile.role || 'user', homeCity: profile.home_city || undefined }
+          : null;
+
+        if (userObj) {
+          setCurrentUser(userObj);
+        }
+
         // Successfully registered - navigate to app
         navigate('/app');
       }

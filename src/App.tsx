@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { MatchProvider } from './contexts/MatchContext';
-import UserGate from './components/UserGate';
+import { MatchProvider, useMatches } from './contexts/MatchContext';
 import AppLayout from './components/AppLayout';
 import UserSetupPage from './pages/UserSetupPage';
 import AuthPage from './pages/AuthPage';
@@ -12,60 +11,44 @@ import MatchDetailsPage from './pages/MatchDetailsPage';
 import './lib/supabase';
 import './App.css';
 
-function App() {
+function InnerRouter() {
+  const { authInitialized, currentUser, selectedArea } = useMatches();
+
+  if (!authInitialized) {
+    return <div className="loading">Laddar…</div>;
+  }
+
+  if (!currentUser) {
+    // No authenticated user — show Auth screen
+    return <AuthPage />;
+  }
+
+  const hasSelectedArea =
+  typeof selectedArea === 'string' &&
+  selectedArea.trim().length > 0;
+
+if (!hasSelectedArea) {
+  return <UserSetupPage />;
+  }
+
+  // Authenticated and area selected → main application router
   return (
     <Router>
-      <MatchProvider>
-        <Routes>
-          {/* Auth route (login/register) */}
-          <Route path="/auth" element={<AuthPage />} />
-          {/* User setup (name + area) route - no gate */}
-          <Route path="/setup" element={<UserSetupPage />} />
-          
-          {/* Main app routes - protected by UserGate */}
-          <Route
-            path="/"
-            element={
-              <UserGate>
-                <AppLayout>
-                  <MatchListPage />
-                </AppLayout>
-              </UserGate>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <AdminGate>
-                <AppLayout>
-                  <AdminPage />
-                </AppLayout>
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/create"
-            element={
-              <UserGate>
-                <AppLayout>
-                  <CreateMatchPage />
-                </AppLayout>
-              </UserGate>
-            }
-          />
-          <Route
-            path="/match/:id"
-            element={
-              <UserGate>
-                <AppLayout>
-                  <MatchDetailsPage />
-                </AppLayout>
-              </UserGate>
-            }
-          />
-        </Routes>
-      </MatchProvider>
+      <Routes>
+        <Route path="/admin" element={<AdminGate><AppLayout><AdminPage /></AppLayout></AdminGate>} />
+        <Route path="/create" element={<AppLayout><CreateMatchPage /></AppLayout>} />
+        <Route path="/match/:id" element={<AppLayout><MatchDetailsPage /></AppLayout>} />
+        <Route path="/" element={<AppLayout><MatchListPage /></AppLayout>} />
+      </Routes>
     </Router>
+  );
+}
+
+function App() {
+  return (
+    <MatchProvider>
+      <InnerRouter />
+    </MatchProvider>
   );
 }
 
