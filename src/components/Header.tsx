@@ -4,7 +4,6 @@ import './Header.css';
 import InstallHelpOverlay from './InstallHelpOverlay';
 import { useMatches } from '../contexts/MatchContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 
 export default function Header() {
   const [showMenu, setShowMenu] = useState(false);
