@@ -1,55 +1,69 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMatches } from '../contexts/MatchContext';
+import { supabase } from '../lib/supabase';
+import { hashPassword } from '../utils/password';
 import './RegisterPage.css';
 
 export default function RegisterPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
   const { setCurrentUser } = useMatches();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-
-    // Validation
-    if (password !== confirmPassword) {
-      setError('Lösenorden matchar inte');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Lösenordet måste vara minst 6 tecken');
+    const uname = username.trim();
+    if (!uname) {
+      setError('Ange ett användarnamn');
       return;
     }
 
     setLoading(true);
-
     try {
-      const res = await signUp(email, password, name);
-      if (res.error) {
-        setError(res.error.message);
-      } else {
-        // If profile info was returned, set app-level currentUser using same shape as login
-        const profile = (res as any).profile;
-        const userObj = profile
-          ? { id: profile.id, username: profile.name || profile.email || undefined, role: profile.role || 'user', homeCity: profile.home_city || undefined }
-          : null;
+      console.info('[register] submit', { username: uname, hasPassword: !!password });
+      // Check if username exists
+      const { data: existing } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', uname)
+        .maybeSingle();
 
-        if (userObj) {
-          setCurrentUser(userObj);
-        }
+      console.info('[register] existing', existing);
 
-        // Successfully registered - App root will show setup or app based on user.homeCity
+      if (existing) {
+        setError('Användarnamnet är upptaget');
+        setLoading(false);
+        return;
+      }
+
+      const password_hash = await hashPassword(password || '');
+
+      const { data, error: insErr } = await supabase
+        .from('users')
+        .insert([{ username: uname, password_hash, created_at: new Date().toISOString(), role: 'user' }])
+        .select()
+        .maybeSingle();
+
+      if (insErr) {
+        console.error('Supabase insert error:', insErr);
+        setError('Kunde inte skapa användaren');
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        const userObj = { id: data.id, username: data.username, role: data.role || 'user', homeCity: data.home_city || undefined };
+        setCurrentUser(userObj);
+        console.info('[register] setCurrentUser', userObj);
+        navigate('/');
       }
     } catch (err) {
-      setError('Ett oväntat fel inträffade. Försök igen.');
+      console.error(err);
+      setError('Ett oväntat fel inträffade');
     } finally {
       setLoading(false);
     }
@@ -69,28 +83,15 @@ export default function RegisterPage() {
           {error && <div className="error-message">{error}</div>}
 
           <div className="form-group">
-            <label htmlFor="name">Namn</label>
+            <label htmlFor="username">Användarnamn</label>
             <input
-              id="name"
+              id="username"
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              autoComplete="name"
-              placeholder="Ditt namn"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="email">E-post</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              placeholder="din@epost.se"
+              placeholder="Användarnamn"
+              maxLength={50}
             />
           </div>
 
@@ -101,24 +102,7 @@ export default function RegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              placeholder="Minst 6 tecken"
-              minLength={6}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Bekräfta lösenord</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              placeholder="Upprepa lösenordet"
-              minLength={6}
+              placeholder="Lösenord (valfritt)"
             />
           </div>
 
@@ -128,7 +112,7 @@ export default function RegisterPage() {
 
           <p className="register-footer">
             Har du redan ett konto?{' '}
-            <Link to="/login" className="register-link">
+            <Link to="/auth/login" className="register-link">
               Logga in
             </Link>
           </p>

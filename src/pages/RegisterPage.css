@@ -1,6 +1,6 @@
 .register-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 100%);
+  background: linear-gradient(180deg, #f8faf9 0%, #ffffff 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,10 +10,18 @@
 .register-container {
   width: 100%;
   max-width: 420px;
-  background: white;
-  border-radius: 16px;
-  padding: 40px 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.register-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.register-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
 }
 
 .register-header {

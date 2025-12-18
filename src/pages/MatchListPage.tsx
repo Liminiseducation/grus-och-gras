@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMatches } from '../contexts/MatchContext';
 import { normalizeArea } from '../utils/normalizeArea';
 import MatchCard from '../components/MatchCard';
@@ -5,12 +6,14 @@ import Header from '../components/Header';
 import FloatingActionButton from '../components/FloatingActionButton';
 import './MatchListPage.css';
 import { supabase } from '../lib/supabase';
+import CityChangeModal from '../components/CityChangeModal';
 
 function MatchListPage() {
   const { matches, loading, currentUser, setCurrentUser } = useMatches();
   // Get user's home city from app state (persistent authenticated user)
   const homeCity = currentUser?.homeCity || '';
   const currentUserId = currentUser?.id || '';
+  const [showCityModal, setShowCityModal] = useState(false);
   
   
   const now = new Date();
@@ -61,15 +64,21 @@ function MatchListPage() {
       <div className="area-header">
         <h2 className="area-title">Matcher i {homeCity || 'din stad'}</h2>
         <div style={{ marginTop: 6 }}>
-          <button className="add-area-button" onClick={async () => {
-            const newCity = window.prompt('Ange stad eller ort', homeCity || '');
-            if (!newCity || !newCity.trim() || !currentUser) return;
-            const updated = { ...currentUser, homeCity: newCity.trim() };
+          <button className="add-area-button" onClick={() => setShowCityModal(true)}>Byt stad</button>
+        </div>
+        <CityChangeModal
+          open={showCityModal}
+          initialCity={homeCity}
+          onClose={() => setShowCityModal(false)}
+          onSave={async (newCity: string) => {
+            if (!currentUser) return;
+            const updated = { ...currentUser, homeCity: newCity };
             try { await supabase.from('profiles').update({ home_city: updated.homeCity }).eq('id', currentUser.id); } catch (e) {}
             try { await supabase.from('users').update({ home_city: updated.homeCity }).eq('id', currentUser.id); } catch (e) {}
             setCurrentUser(updated);
-          }}>Byt stad</button>
-        </div>
+            setShowCityModal(false);
+          }}
+        />
       </div>
 
       <div className="matches-container">

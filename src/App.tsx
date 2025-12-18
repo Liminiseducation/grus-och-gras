@@ -1,8 +1,11 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MatchProvider, useMatches } from './contexts/MatchContext';
+import { AuthProvider } from './contexts/AuthContext';
 import AppLayout from './components/AppLayout';
 import UserSetupPage from './pages/UserSetupPage';
 import AuthPage from './pages/AuthPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
 import AdminGate from './components/AdminGate';
 import MatchListPage from './pages/MatchListPage';
@@ -14,39 +17,49 @@ import './App.css';
 function InnerRouter() {
   const { authInitialized, currentUser } = useMatches();
 
-  if (!authInitialized) {
-    return <div className="loading">Laddar…</div>;
+  function RequireAuthAndCity({ children }: { children: React.ReactNode }) {
+    if (!authInitialized) {
+      return <div className="loading">Laddar…</div>;
+    }
+
+    if (!currentUser) {
+      return <Navigate to="/auth" replace />;
+    }
+
+    const hasHomeCity = typeof currentUser?.homeCity === 'string' && currentUser?.homeCity.trim().length > 0;
+    if (!hasHomeCity) {
+      return <UserSetupPage />;
+    }
+
+    return <>{children}</>;
   }
 
-  if (!currentUser) {
-    // No authenticated user — show Auth screen
-    return <AuthPage />;
-  }
-
-  const hasHomeCity = typeof currentUser?.homeCity === 'string' && currentUser?.homeCity.trim().length > 0;
-
-  if (!hasHomeCity) {
-    return <UserSetupPage />;
-  }
-
-  // Authenticated and area selected → main application router
+  // Define all routes; auth routes are always available, app routes wrapped by RequireAuthAndCity
   return (
-    <Router>
-      <Routes>
-        <Route path="/admin" element={<AdminGate><AppLayout><AdminPage /></AppLayout></AdminGate>} />
-        <Route path="/create" element={<AppLayout><CreateMatchPage /></AppLayout>} />
-        <Route path="/match/:id" element={<AppLayout><MatchDetailsPage /></AppLayout>} />
-        <Route path="/" element={<AppLayout><MatchListPage /></AppLayout>} />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/auth" element={<AuthPage />} />
+      <Route path="/auth/login" element={<LoginPage />} />
+      <Route path="/auth/register" element={<RegisterPage />} />
+
+      <Route path="/admin" element={<RequireAuthAndCity><AdminGate><AppLayout><AdminPage /></AppLayout></AdminGate></RequireAuthAndCity>} />
+      <Route path="/create" element={<RequireAuthAndCity><AppLayout><CreateMatchPage /></AppLayout></RequireAuthAndCity>} />
+      <Route path="/match/:id" element={<RequireAuthAndCity><AppLayout><MatchDetailsPage /></AppLayout></RequireAuthAndCity>} />
+      <Route path="/" element={<RequireAuthAndCity><AppLayout><MatchListPage /></AppLayout></RequireAuthAndCity>} />
+
+      <Route path="*" element={<Navigate to="/auth" replace />} />
+    </Routes>
   );
 }
 
 function App() {
   return (
-    <MatchProvider>
-      <InnerRouter />
-    </MatchProvider>
+    <Router>
+      <AuthProvider>
+        <MatchProvider>
+          <InnerRouter />
+        </MatchProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

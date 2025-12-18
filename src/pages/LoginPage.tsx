@@ -1,30 +1,65 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMatches } from '../contexts/MatchContext';
+import { supabase } from '../lib/supabase';
+import { verifyPassword } from '../utils/password';
 import './LoginPage.css';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { setCurrentUser } = useMatches();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    console.info('[login] submit', { username, password });
+    if (!username.trim()) {
+      setError('Ange användarnamn');
+      return;
+    }
     setLoading(true);
-
     try {
-      const { error } = await signIn(email, password);
+      const uname = username.trim();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', uname)
+        .maybeSingle();
+
+      console.info('[login] db lookup result', { data, error });
+
       if (error) {
-        setError(error.message);
-      } else {
-        navigate('/app');
+        console.error('Supabase select error:', error);
+        setError('Kunde inte läsa användare');
+        setLoading(false);
+        return;
       }
+
+      if (!data) {
+        setError('Felaktigt användarnamn eller lösenord');
+        setLoading(false);
+        return;
+      }
+
+      const ok = await verifyPassword(data.password_hash || '', password);
+      console.info('[login] password verify', ok);
+      if (!ok) {
+        setError('Felaktigt användarnamn eller lösenord');
+        setLoading(false);
+        return;
+      }
+
+      const userObj = { id: data.id, username: data.username, role: data.role || 'user', homeCity: data.home_city || undefined };
+      setCurrentUser(userObj);
+      console.info('[login] setCurrentUser', userObj);
+      navigate('/');
     } catch (err) {
-      setError('Ett oväntat fel inträffade. Försök igen.');
+      console.error(err);
+      setError('Ett oväntat fel inträffade');
     } finally {
       setLoading(false);
     }
@@ -44,15 +79,14 @@ export default function LoginPage() {
           {error && <div className="error-message">{error}</div>}
 
           <div className="form-group">
-            <label htmlFor="email">E-post</label>
+            <label htmlFor="username">Användarnamn</label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              autoComplete="email"
-              placeholder="din@epost.se"
+              placeholder="Användarnamn"
             />
           </div>
 
@@ -64,9 +98,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
-              placeholder="Ditt lösenord"
-              minLength={6}
+              placeholder="Lösenord"
             />
           </div>
 
@@ -76,7 +108,7 @@ export default function LoginPage() {
 
           <p className="login-footer">
             Har du inget konto?{' '}
-            <Link to="/register" className="login-link">
+            <Link to="/auth/register" className="login-link">
               Skapa konto
             </Link>
           </p>
