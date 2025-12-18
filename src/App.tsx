@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { MatchProvider, useMatches } from './contexts/MatchContext';
 import AppLayout from './components/AppLayout';
 import UserSetupPage from './pages/UserSetupPage';
