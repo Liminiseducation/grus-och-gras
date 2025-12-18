@@ -1,10 +1,15 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
-import type { Match } from '../types';
+import type { Match, User } from '../types';
+import { normalizeArea } from '../utils/normalizeArea';
 import { supabase } from '../lib/supabase';
 
 interface MatchContextType {
   matches: Match[];
   loading: boolean;
+  selectedArea: string;
+  setSelectedArea: (area: string) => void;
+  currentUser: User | null;
+  setCurrentUser: (user: User | null) => void;
   addMatch: (match: Omit<Match, 'id' | 'players' | 'createdBy'>, createdBy?: string, creatorName?: string) => Promise<void>;
   joinMatch: (matchId: string, player: { id: string; name: string }) => Promise<void>;
   leaveMatch: (matchId: string, playerId: string) => Promise<void>;
@@ -29,8 +34,114 @@ function isMatchExpired(match: Match): boolean {
 
 export function MatchProvider({ children }: { children: ReactNode }) {
   const USER_STORAGE_KEY = 'grus-gras-user';
+  const SELECTED_AREA_KEY = 'grus-gras-selected-area';
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedArea, _setSelectedArea] = useState<string>(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_AREA_KEY) : null;
+      return stored ? normalizeArea(stored) : '';
+    } catch (e) {
+      return '';
+    }
+  });
+
+  const [currentUser, _setCurrentUser] = useState<User | null>(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(USER_STORAGE_KEY) : null;
+      // Log when reading user from localStorage
+      if (stored) {
+        try { console.info('[auth] read user from localStorage:', JSON.parse(stored)); } catch(e) { console.info('[auth] read user from localStorage (raw):', stored); }
+      } else {
+        console.info('[auth] no user in localStorage');
+      }
+      const parsed = stored ? JSON.parse(stored) : null;
+      if (parsed && !parsed.role) parsed.role = 'user';
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const setCurrentUser = (user: User | null) => {
+    // Ensure role defaults to 'user' when setting
+    if (user && !user.role) user.role = 'user';
+    _setCurrentUser(user);
+    try {
+      if (typeof window !== 'undefined') {
+        if (user) {
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+          try { console.info('[auth] set currentUser:', user); } catch (e) { console.info('[auth] set currentUser'); }
+        } else {
+          localStorage.removeItem(USER_STORAGE_KEY);
+          try { console.info('[auth] cleared currentUser'); } catch (e) { console.info('[auth] cleared currentUser'); }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const setSelectedArea = (area: string) => {
+    const normalized = area ? normalizeArea(area) : '';
+    _setSelectedArea(normalized);
+    try {
+      if (typeof window !== 'undefined') {
+        if (normalized) {
+          localStorage.setItem(SELECTED_AREA_KEY, normalized);
+        } else {
+          localStorage.removeItem(SELECTED_AREA_KEY);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Sync selected area across tabs (listen to storage events)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (ev: StorageEvent) => {
+      if (ev.key === SELECTED_AREA_KEY) {
+        try {
+          const val = ev.newValue || '';
+          _setSelectedArea(val ? normalizeArea(val) : '');
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  // Mount-time logs and a small debug helper for the console
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line no-console
+      console.info('[match-context] mounted. currentUser:', currentUser, 'selectedArea:', selectedArea);
+      if (import.meta.env.DEV && typeof window !== 'undefined') {
+        (window as any).__authDebug = () => {
+          try {
+            const lsUser = localStorage.getItem(USER_STORAGE_KEY);
+            // eslint-disable-next-line no-console
+            console.info('[authDebug] currentUser (state):', currentUser);
+            // eslint-disable-next-line no-console
+            console.info('[authDebug] localStorage user:', lsUser ? JSON.parse(lsUser) : null);
+            // eslint-disable-next-line no-console
+            console.info('[authDebug] selectedArea (state):', selectedArea);
+            // eslint-disable-next-line no-console
+            console.info('[authDebug] selectedArea (localStorage):', localStorage.getItem(SELECTED_AREA_KEY));
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('[authDebug] error reading debug info', e);
+          }
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   // Fetch matches from Supabase
   const fetchMatches = async () => {
@@ -70,6 +181,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         createdBy: dbMatch.created_by,
         creatorId: dbMatch.created_by,
         creatorName: dbMatch.creator_name,
+        createdAt: dbMatch.created_at,
+        normalizedArea: normalizeArea(dbMatch.area || dbMatch.city || ''),
+        normalizedCity: normalizeArea(dbMatch.city || ''),
       } as Match));
 
       // TODO: Temporarily disable active/time/expiry filtering and return all fetched matches.
@@ -173,7 +287,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
           hint: error.hint,
           code: error.code
         });
-        throw error;
+        // Throw a clearer Error so callers can show a helpful message
+        throw new Error(error.message || 'Supabase insert failed');
       }
 
       console.log('✅ Successfully inserted match into Supabase:', data);
@@ -420,7 +535,18 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   const isOrphanMatch = (match: Match) => {
     try {
       const creatorId = match.createdBy || (match as any).creatorId;
-      if (!creatorId) return true;
+
+      // If there is a creator id, consider it non-orphan
+      if (creatorId) return false;
+
+      // If no createdAt timestamp, avoid deleting immediately
+      const createdAt = (match as any).createdAt ? new Date((match as any).createdAt) : null;
+      if (!createdAt) return false;
+
+      // Only consider truly old orphan matches for deletion (e.g., older than 2 minutes)
+      const ageMs = Date.now() - createdAt.getTime();
+      const ORPHAN_AGE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+      if (ageMs < ORPHAN_AGE_THRESHOLD_MS) return false;
 
       // Determine active session ids from localStorage (best-effort)
       const userJson = localStorage.getItem(USER_STORAGE_KEY);
@@ -501,6 +627,10 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     <MatchContext.Provider value={{
       matches,
       loading,
+      selectedArea,
+      setSelectedArea,
+      currentUser,
+      setCurrentUser,
       addMatch,
       joinMatch,
       leaveMatch,

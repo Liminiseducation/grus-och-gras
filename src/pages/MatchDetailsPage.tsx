@@ -13,10 +13,8 @@ function MatchDetailsPage() {
 
   // Debug logs removed for production polish
 
-  // Current user from localStorage
-  const USER_STORAGE_KEY = 'grus-gras-user';
-  const userJson = typeof window !== 'undefined' ? localStorage.getItem(USER_STORAGE_KEY) : null;
-  const currentUser = userJson ? JSON.parse(userJson) : null;
+  // Current user from app state (persistent authenticated user)
+  const { currentUser } = useMatches();
   const currentUserId = currentUser?.id || '';
 
   const isMember = !!match?.players?.some((p: any) => p.id === currentUserId);

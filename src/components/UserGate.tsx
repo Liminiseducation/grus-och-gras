@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
+import { useMatches } from '../contexts/MatchContext';
 
 const USER_STORAGE_KEY = 'grus-gras-user';
 
@@ -7,10 +8,29 @@ interface UserGateProps {
 }
 
 export default function UserGate({ children }: UserGateProps) {
-  const userJson = localStorage.getItem(USER_STORAGE_KEY);
   const location = useLocation();
-  
-  if (!userJson) {
+  // Use match context to determine if an area has been selected and to read current user
+  const { selectedArea, currentUser } = useMatches();
+
+  // Log routing decision
+  try {
+    // eslint-disable-next-line no-console
+    console.info('[route] currentUser:', currentUser, 'selectedArea:', selectedArea);
+  } catch (e) {
+    // ignore
+  }
+
+  // If no persistent currentUser, send to auth (login/register)
+  if (!currentUser) {
+    // eslint-disable-next-line no-console
+    console.info('[route] navigating to /auth (no currentUser)');
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  }
+
+  // If user exists but hasn't selected an area yet, require onboarding
+  if (!selectedArea) {
+    // eslint-disable-next-line no-console
+    console.info('[route] navigating to /setup (no selectedArea)');
     return <Navigate to="/setup" state={{ from: location.pathname }} replace />;
   }
 

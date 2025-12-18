@@ -4,8 +4,6 @@ import { useMatches } from '../contexts/MatchContext';
 import type { User } from '../types';
 import './CreateMatchPage.css';
 
-const USER_STORAGE_KEY = 'grus-gras-user';
-
 const suggestedLocations = [
   'Ryasskolan Grusplan',
   'Floda Idrottsplats',
@@ -16,11 +14,10 @@ const suggestedLocations = [
 
 function CreateMatchPage() {
   const navigate = useNavigate();
-  const { addMatch } = useMatches();
+  const { addMatch, currentUser } = useMatches();
   
-  // Get user's home city
-  const userJson = localStorage.getItem(USER_STORAGE_KEY);
-  const user: User | null = userJson ? JSON.parse(userJson) : null;
+  // Get user's home city from persistent authenticated user
+  const user: User | null = currentUser || null;
   const homeCity = user?.homeCity || '';
   
   const [formData, setFormData] = useState({
@@ -59,9 +56,10 @@ function CreateMatchPage() {
       
       console.log('Match created, navigating to home');
       navigate('/');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create match:', err);
-      alert('Kunde inte skapa matchen. Försök igen.');
+      const msg = err?.message || String(err) || 'Kunde inte skapa matchen.';
+      alert(`Kunde inte skapa matchen: ${msg}`);
     }
   };
 

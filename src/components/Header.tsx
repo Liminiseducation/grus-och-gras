@@ -2,29 +2,32 @@ import { useState } from 'react';
 import type { User } from '../types';
 import './Header.css';
 import InstallHelpOverlay from './InstallHelpOverlay';
-
-const USER_STORAGE_KEY = 'grus-gras-user';
+import { useMatches } from '../contexts/MatchContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
   const [showMenu, setShowMenu] = useState(false);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
-  
-  const userJson = localStorage.getItem(USER_STORAGE_KEY);
-  const user: User | null = userJson ? JSON.parse(userJson) : null;
+  const { currentUser, setCurrentUser } = useMatches();
+  const navigate = useNavigate();
+
+  const user: User | null = currentUser || null;
 
   const handleClearUser = () => {
-    localStorage.removeItem(USER_STORAGE_KEY);
-    window.location.href = '/setup';
+    // Clearing user logs out to auth; persistent user removed
+    setCurrentUser(null);
+    navigate('/auth', { replace: true });
   };
 
   const getInitials = () => {
-    if (user?.name) {
-      return user.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+    // Use the first character of the username (uppercase). Fallback to 'U'.
+    try {
+      const uname = user?.username;
+      if (uname && typeof uname === 'string' && uname.trim().length > 0) {
+        return uname.trim().charAt(0).toUpperCase();
+      }
+    } catch (e) {
+      // ignore
     }
     return 'U';
   };
@@ -37,6 +40,9 @@ export default function Header() {
           <h1 className="app-name">Grus & Gräs</h1>
           <p className="app-tagline">Hitta match. Spela boll.</p>
           <button className="global-install-link" onClick={() => setShowInstallHelp(true)}>Installera appen</button>
+          {user?.role === 'admin' && (
+            <button className="admin-link" onClick={() => navigate('/admin')} style={{ marginLeft: 12 }}>Admin</button>
+          )}
         </div>
         <div className="user-menu-container">
           <button 

@@ -3,6 +3,9 @@ import { MatchProvider } from './contexts/MatchContext';
 import UserGate from './components/UserGate';
 import AppLayout from './components/AppLayout';
 import UserSetupPage from './pages/UserSetupPage';
+import AuthPage from './pages/AuthPage';
+import AdminPage from './pages/AdminPage';
+import AdminGate from './components/AdminGate';
 import MatchListPage from './pages/MatchListPage';
 import CreateMatchPage from './pages/CreateMatchPage';
 import MatchDetailsPage from './pages/MatchDetailsPage';
@@ -14,7 +17,9 @@ function App() {
     <Router>
       <MatchProvider>
         <Routes>
-          {/* User setup route - no gate */}
+          {/* Auth route (login/register) */}
+          <Route path="/auth" element={<AuthPage />} />
+          {/* User setup (name + area) route - no gate */}
           <Route path="/setup" element={<UserSetupPage />} />
           
           {/* Main app routes - protected by UserGate */}
@@ -26,6 +31,16 @@ function App() {
                   <MatchListPage />
                 </AppLayout>
               </UserGate>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminGate>
+                <AppLayout>
+                  <AdminPage />
+                </AppLayout>
+              </AdminGate>
             }
           />
           <Route

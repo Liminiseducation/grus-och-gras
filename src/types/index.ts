@@ -1,7 +1,10 @@
 export interface User {
   id: string;
-  name: string;
-  homeCity: string;
+  // `username` is used for auth; `name` is display name chosen in setup.
+  username?: string;
+  name?: string;
+  homeCity?: string;
+  role?: 'user' | 'admin';
 }
 
 export interface Player {
@@ -28,6 +31,10 @@ export interface Match {
   createdBy?: string; // User ID of match creator
   creatorId?: string; // alias for createdBy (optional)
   creatorName?: string; // Name of match creator
+  createdAt?: string | Date;
+  // Normalized forms (for matching only, do not display these directly)
+  normalizedArea?: string;
+  normalizedCity?: string;
 }
 
 export interface Team {
