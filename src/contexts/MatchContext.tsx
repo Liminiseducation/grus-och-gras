@@ -165,6 +165,15 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Mark auth as initialized after initial mount/read so UI can proceed
+  useEffect(() => {
+    try {
+      setAuthInitialized(true);
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
   // Fetch matches from Supabase
   const fetchMatches = async () => {
     try {
@@ -630,8 +639,6 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         } catch (e) {
           // ignore
         }
-        // mark auth as initialized after mount/read
-        try { setAuthInitialized(true); } catch (e) { /* ignore */ }
       };
     }
     return;
