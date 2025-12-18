@@ -12,7 +12,7 @@ import './lib/supabase';
 import './App.css';
 
 function InnerRouter() {
-  const { authInitialized, currentUser, selectedArea } = useMatches();
+  const { authInitialized, currentUser } = useMatches();
 
   if (!authInitialized) {
     return <div className="loading">Laddar…</div>;
@@ -23,12 +23,10 @@ function InnerRouter() {
     return <AuthPage />;
   }
 
-  const hasSelectedArea =
-  typeof selectedArea === 'string' &&
-  selectedArea.trim().length > 0;
+  const hasHomeCity = typeof currentUser?.homeCity === 'string' && currentUser?.homeCity.trim().length > 0;
 
-if (!hasSelectedArea) {
-  return <UserSetupPage />;
+  if (!hasHomeCity) {
+    return <UserSetupPage />;
   }
 
   // Authenticated and area selected → main application router

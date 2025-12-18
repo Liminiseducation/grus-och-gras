@@ -63,22 +63,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [currentUser, _setCurrentUser] = useState<User | null>(() => {
-    try {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem(USER_STORAGE_KEY) : null;
-      // Log when reading user from localStorage
-      if (stored) {
-        try { console.info('[auth] read user from localStorage:', JSON.parse(stored)); } catch(e) { console.info('[auth] read user from localStorage (raw):', stored); }
-      } else {
-        console.info('[auth] no user in localStorage');
-      }
-      const parsed = stored ? JSON.parse(stored) : null;
-      if (parsed && !parsed.role) parsed.role = 'user';
-      return parsed;
-    } catch (e) {
-      return null;
-    }
-  });
+  // Do not auto-hydrate currentUser from localStorage for onboarding decisions.
+  // Require explicit login to populate `currentUser` so onboarding is stable.
+  const [currentUser, _setCurrentUser] = useState<User | null>(null);
 
   // Track whether we've completed initial auth read (so UI can distinguish
   // between "no user" and "not yet loaded"). This becomes true after
@@ -91,6 +78,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     _setCurrentUser(user);
     try {
       if (typeof window !== 'undefined') {
+        // Persist minimal user locally for convenience, but onboarding decisions
+        // should rely on `currentUser` state (and server-side data) rather than
+        // localStorage at startup.
         if (user) {
           localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
           try { console.info('[auth] set currentUser:', user); } catch (e) { console.info('[auth] set currentUser'); }
@@ -276,6 +266,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       console.log('Adding match to Supabase:', matchData);
 
       // Convert app format (camelCase) to database format (snake_case)
+      // Use currentUser.homeCity as source of truth for match area when available
+      const areaFromUser = currentUser?.homeCity || undefined;
       const dbMatch = {
         title: matchData.title,
         description: matchData.description,
@@ -286,13 +278,14 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         has_ball: matchData.hasBall,
         requires_football_shoes: matchData.requiresFootballShoes,
         play_style: matchData.playStyle,
-        players: createdBy && creatorName ? [{ id: createdBy, name: (creatorName && creatorName.length > 1) ? creatorName : (localStorage.getItem(USER_STORAGE_KEY) ? JSON.parse(localStorage.getItem(USER_STORAGE_KEY) as string).username : creatorName) }] : [],
-        area: matchData.area,
-        city: matchData.city,
+        players: (createdBy || currentUser?.id) && (creatorName || currentUser?.username) ? [{ id: createdBy || currentUser?.id || '', name: (creatorName && creatorName.length > 1) ? creatorName : (currentUser?.username || creatorName || '') }] : [],
+        // Prefer user's stored area; fall back to provided area or city
+        area: areaFromUser ?? matchData.area ?? matchData.city,
+        city: areaFromUser ?? matchData.city ?? matchData.area,
         latitude: matchData.latitude,
         longitude: matchData.longitude,
-        created_by: createdBy,
-        creator_name: creatorName,
+        created_by: createdBy ?? currentUser?.id ?? null,
+        creator_name: creatorName ?? currentUser?.username ?? null,
       };
 
       console.log('Inserting match into Supabase with data:', {

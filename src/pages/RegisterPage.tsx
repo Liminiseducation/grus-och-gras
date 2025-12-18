@@ -47,8 +47,7 @@ export default function RegisterPage() {
           setCurrentUser(userObj);
         }
 
-        // Successfully registered - navigate to app
-        navigate('/app');
+        // Successfully registered - App root will show setup or app based on user.homeCity
       }
     } catch (err) {
       setError('Ett oväntat fel inträffade. Försök igen.');
