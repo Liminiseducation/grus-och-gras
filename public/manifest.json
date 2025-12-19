@@ -1,11 +1,12 @@
 {
-  "name": "Vite Football App",
-  "short_name": "Football",
+  "name": "Grus & Gräs",
+  "short_name": "Grus & Gräs",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2d6a4f",
-  "description": "Local pickup football matches",
+  "description": "Fotboll, när det passar dig. Skapa eller hitta spontana matcher och träningar nära dig.",
   "icons": [
     {
       "src": "/icons/icon-192.png",
