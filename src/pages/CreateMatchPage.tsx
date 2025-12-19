@@ -12,6 +12,20 @@ const suggestedLocations = [
   'Stenkullen IP'
 ];
 
+type CreateMatchFormState = {
+  title: string;
+  area: string;
+  city: string;
+  date: string;
+  time: string;
+  maxPlayers: string;
+  surface: 'Grus' | 'Konstgräs' | 'Naturgräs' | 'Asfalt';
+  hasBall: boolean;
+  requiresFootballShoes: boolean;
+  playStyle: '' | 'spontanspel' | 'träning' | 'match';
+  description: string;
+};
+
 function CreateMatchPage() {
   const navigate = useNavigate();
   const { addMatch, currentUser } = useMatches();
@@ -21,7 +35,7 @@ function CreateMatchPage() {
 
   const STORAGE_KEY = 'createMatchForm';
 
-  const defaultForm = {
+  const defaultForm: CreateMatchFormState = {
     title: '',
     area: homeCity,
     city: '',
@@ -35,12 +49,12 @@ function CreateMatchPage() {
     description: '',
   };
 
-  const [formData, setFormData] = useState(() => {
+  const [formData, setFormData] = useState<CreateMatchFormState>(() => {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        return { ...defaultForm, ...parsed };
+        const parsed = JSON.parse(raw) as Partial<CreateMatchFormState>;
+        return { ...defaultForm, ...parsed } as CreateMatchFormState;
       }
     } catch (err) {
       // ignore parse errors
@@ -97,7 +111,7 @@ function CreateMatchPage() {
       clearSavedForm();
 
   const handleLocationChipClick = (location: string) => {
-    setFormData(prev => ({ ...prev, title: location }));
+    setFormData((prev: CreateMatchFormState) => ({ ...prev, title: location }));
   };
 
   // When user navigates back/cancels, clear the saved draft
@@ -132,7 +146,7 @@ function CreateMatchPage() {
               name="area"
               className="text-input"
               value={formData.area}
-              onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, area: e.target.value }))}
               placeholder="t.ex. Lerum, Floda, Kungälv"
               required
             />
@@ -148,7 +162,7 @@ function CreateMatchPage() {
               name="title"
               className="text-input"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, title: e.target.value }))}
               placeholder="T.ex. Vasaparken Plan 2"
               required
             />
@@ -182,7 +196,7 @@ function CreateMatchPage() {
                 name="date"
                 className="date-input"
                 value={formData.date}
-                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, date: e.target.value }))}
                 min={new Date().toISOString().split('T')[0]}
                 required
               />
@@ -198,7 +212,7 @@ function CreateMatchPage() {
                 name="time"
                 className="time-input"
                 value={formData.time}
-                onChange={(e) => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, time: e.target.value }))}
                 required
               />
             </div>
@@ -217,7 +231,7 @@ function CreateMatchPage() {
               name="playStyle"
               className="select-input"
               value={formData.playStyle}
-              onChange={(e) => setFormData(prev => ({ ...prev, playStyle: e.target.value as '' | 'spontanspel' | 'träning' | 'match' }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, playStyle: e.target.value as '' | 'spontanspel' | 'träning' | 'match' }))}
             >
               <option value="">Ingen vald</option>
               <option value="spontanspel">Spontanspel</option>
@@ -235,7 +249,7 @@ function CreateMatchPage() {
               name="maxPlayers"
               className="select-input"
               value={formData.maxPlayers}
-              onChange={(e) => setFormData(prev => ({ ...prev, maxPlayers: e.target.value }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, maxPlayers: e.target.value }))}
               required
             >
               <option value="6">6 spelare (3 mot 3)</option>
@@ -256,7 +270,7 @@ function CreateMatchPage() {
               name="surface"
               className="select-input"
               value={formData.surface}
-              onChange={(e) => setFormData(prev => ({ ...prev, surface: e.target.value as 'Grus' | 'Konstgräs' | 'Naturgräs' | 'Asfalt' }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, surface: e.target.value as 'Grus' | 'Konstgräs' | 'Naturgräs' | 'Asfalt' }))}
               required
             >
               <option value="Konstgräs">Konstgräs</option>
@@ -271,7 +285,7 @@ function CreateMatchPage() {
               type="checkbox"
               name="hasBall"
               checked={formData.hasBall}
-              onChange={(e) => setFormData(prev => ({ ...prev, hasBall: e.target.checked }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, hasBall: e.target.checked }))}
               className="checkbox-input"
             />
             <span className="checkbox-label">Jag tar med boll</span>
@@ -283,7 +297,7 @@ function CreateMatchPage() {
                 type="checkbox"
                 name="requiresFootballShoes"
                 checked={formData.requiresFootballShoes}
-                onChange={(e) => setFormData(prev => ({ ...prev, requiresFootballShoes: e.target.checked }))}
+                onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, requiresFootballShoes: e.target.checked }))}
                 className="checkbox-input"
               />
               <span className="checkbox-label">Jag tar med fotbollsskor</span>
@@ -306,7 +320,7 @@ function CreateMatchPage() {
               name="description"
               className="textarea-input"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, description: e.target.value }))}
               placeholder="T.ex. Avslappnad match, alla nivåer välkomna!"
               rows={3}
             />
