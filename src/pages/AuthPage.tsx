@@ -11,7 +11,9 @@ export default function AuthPage() {
         <div className="user-setup-content">
           <div className="user-setup-icon">⚽</div>
           <h1 className="user-setup-headline">Grus & Gräs</h1>
-          <p className="user-setup-sub">Välj hur du vill fortsätta</p>
+          <p className="user-setup-description">Fotboll, när det passar dig.<br />
+Skapa eller hitta spontana matcher och träningar nära dig.<br />
+För dig som vill spela utan krångel.</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
             <button type="button" onClick={() => navigate('/auth/login')} className="user-setup-button">Logga in</button>
