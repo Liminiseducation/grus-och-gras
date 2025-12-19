@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMatches } from '../contexts/MatchContext';
 import type { User } from '../types';
@@ -15,12 +15,13 @@ const suggestedLocations = [
 function CreateMatchPage() {
   const navigate = useNavigate();
   const { addMatch, currentUser } = useMatches();
-  
-  // Get user's home city from persistent authenticated user
+
   const user: User | null = currentUser || null;
   const homeCity = user?.homeCity || '';
-  
-  const [formData, setFormData] = useState({
+
+  const STORAGE_KEY = 'createMatchForm';
+
+  const defaultForm = {
     title: '',
     area: homeCity,
     city: '',
@@ -32,7 +33,37 @@ function CreateMatchPage() {
     requiresFootballShoes: false,
     playStyle: '' as '' | 'spontanspel' | 'träning' | 'match',
     description: '',
+  };
+
+  const [formData, setFormData] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { ...defaultForm, ...parsed };
+      }
+    } catch (err) {
+      // ignore parse errors
+    }
+    return defaultForm;
   });
+
+  // Persist form to sessionStorage on change so it survives remounts/refreshes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+    } catch (err) {
+      // ignore storage errors
+    }
+  }, [formData]);
+
+  const clearSavedForm = () => {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      // ignore
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -62,15 +93,23 @@ function CreateMatchPage() {
       alert(`Kunde inte skapa matchen: ${msg}`);
     }
   };
+      // clear persisted form state after successful submit
+      clearSavedForm();
 
   const handleLocationChipClick = (location: string) => {
     setFormData(prev => ({ ...prev, title: location }));
   };
 
+  // When user navigates back/cancels, clear the saved draft
+  const handleCancel = () => {
+    clearSavedForm();
+    navigate(-1);
+  };
+
   return (
     <div className="create-match-page">
-      <header className="create-header">
-        <button onClick={() => navigate(-1)} className="back-button">
+        <header className="create-header">
+        <button onClick={handleCancel} className="back-button">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -274,9 +313,10 @@ function CreateMatchPage() {
           </div>
         </section>
 
-        <button type="submit" className="submit-button">
-          Starta matchen
-        </button>
+        <div className="form-actions">
+          <button type="button" className="cancel-button" onClick={handleCancel}>Avbryt</button>
+          <button type="submit" className="submit-button">Starta matchen</button>
+        </div>
       </form>
     </div>
   );
