@@ -4,13 +4,7 @@ import { useMatches } from '../contexts/MatchContext';
 import type { User } from '../types';
 import './CreateMatchPage.css';
 
-const suggestedLocations = [
-  'Ryasskolan Grusplan',
-  'Floda Idrottsplats',
-  'Gråbo Skola',
-  'Lerum Arena',
-  'Stenkullen IP'
-];
+// Predefined location suggestions removed for public/native release.
 
 type CreateMatchFormState = {
   title: string;
@@ -110,9 +104,7 @@ function CreateMatchPage() {
       // clear persisted form state after successful submit
       clearSavedForm();
 
-  const handleLocationChipClick = (location: string) => {
-    setFormData((prev: CreateMatchFormState) => ({ ...prev, title: location }));
-  };
+  // location chip handler removed
 
   // When user navigates back/cancels, clear the saved draft
   const handleCancel = () => {
@@ -168,18 +160,7 @@ function CreateMatchPage() {
             />
           </div>
 
-          <div className="location-chips">
-            {suggestedLocations.map((location) => (
-              <button
-                key={location}
-                type="button"
-                className="location-chip"
-                onClick={() => handleLocationChipClick(location)}
-              >
-                {location}
-              </button>
-            ))}
-          </div>
+          {/* Predefined location suggestions removed — users enter location manually. */}
         </section>
 
         <section className="form-section">
