@@ -1,13 +1,11 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import type { User } from '../types';
 import './UserSetupPage.css';
-import InstallHelpOverlay from '../components/InstallHelpOverlay';
 import { useMatches } from '../contexts/MatchContext';
 import { supabase } from '../lib/supabase';
 
 
 export default function UserSetupPage() {
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [homeCity, setHomeCity] = useState('');
   const { currentUser, setCurrentUser, /* setSelectedArea, */ authInitialized } = useMatches();
   // Wait for auth initialization. App-level gate will handle redirecting to /auth
@@ -82,7 +80,7 @@ export default function UserSetupPage() {
           </>
         </div>
       </div>
-      {showInstallHelp && <InstallHelpOverlay onClose={() => setShowInstallHelp(false)} />}
+      
     </div>
   );
 }

@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import type { User } from '../types';
 import './Header.css';
-import InstallHelpOverlay from './InstallHelpOverlay';
 import { useMatches } from '../contexts/MatchContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
   const [showMenu, setShowMenu] = useState(false);
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
   const { currentUser, setCurrentUser } = useMatches();
   const navigate = useNavigate();
   
@@ -71,7 +69,7 @@ export default function Header() {
         <div className="header-text">
           <h1 className="app-name">Fotbollsappen</h1>
           <p className="app-tagline">Hitta match. Spela boll.</p>
-          <button className="global-install-link" onClick={() => setShowInstallHelp(true)}>Installera appen</button>
+
           {user?.role === 'admin' && (
             <button className="admin-link" onClick={() => navigate('/admin')} style={{ marginLeft: 12 }}>Admin</button>
           )}
@@ -112,7 +110,7 @@ export default function Header() {
         </div>
       </div>
     </header>
-    {showInstallHelp && <InstallHelpOverlay onClose={() => setShowInstallHelp(false)} />}
+    
     </>
   );
 }
