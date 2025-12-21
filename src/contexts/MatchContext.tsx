@@ -227,27 +227,10 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     fetchMatches();
   }, []);
 
-  // Auto-refresh matches every 10 seconds while the app is open.
-  // Uses a ref to the latest `fetchMatches` to avoid recreating the interval.
-  const fetchRef = useRef(fetchMatches);
-  useEffect(() => {
-    fetchRef.current = fetchMatches;
-  }, [fetchMatches]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      // best-effort refresh; ignore errors
-      try {
-        fetchRef.current().catch(() => {});
-      } catch (e) {
-        // ignore
-      }
-    }, 10000);
-
-    return () => {
-      clearInterval(id);
-    };
-  }, []);
+  // Note: Automatic global polling removed. Matches are fetched on mount
+  // (see the initial fetch above) and can be refreshed manually via
+  // the exported `refreshMatches` method. This avoids background polling
+  // which is undesirable for native mobile deployments.
 
   // Rensa utgångna matcher var 60:e sekund
   // TODO: Temporarily disable periodic expiry filtering while QA is in progress.
