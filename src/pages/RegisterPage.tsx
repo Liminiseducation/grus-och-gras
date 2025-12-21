@@ -73,7 +73,7 @@ export default function RegisterPage() {
     <div className="register-page">
       <div className="register-container">
         <div className="register-header">
-          <h1>Grus & Gräs</h1>
+          <h1>Fotbollsappen</h1>
           <p className="register-tagline">Hitta match. Spela boll.</p>
         </div>
 

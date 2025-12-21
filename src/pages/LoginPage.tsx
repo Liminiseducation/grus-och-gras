@@ -69,7 +69,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1>Grus & Gräs</h1>
+          <h1>Fotbollsappen</h1>
           <p className="login-tagline">Hitta match. Spela boll.</p>
         </div>
 

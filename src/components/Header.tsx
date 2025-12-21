@@ -69,7 +69,7 @@ export default function Header() {
     <header className="app-header">
       <div className="header-content">
         <div className="header-text">
-          <h1 className="app-name">Grus & Gräs</h1>
+          <h1 className="app-name">Fotbollsappen</h1>
           <p className="app-tagline">Hitta match. Spela boll.</p>
           <button className="global-install-link" onClick={() => setShowInstallHelp(true)}>Installera appen</button>
           {user?.role === 'admin' && (
