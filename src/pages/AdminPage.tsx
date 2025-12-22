@@ -4,7 +4,7 @@ import { useMatches } from '../contexts/MatchContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function AdminPage() {
-  const { matches, refreshMatches, currentUser } = useMatches();
+  const { matches, currentUser } = useMatches();
   const navigate = useNavigate();
   const [matchFilter, setMatchFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
@@ -43,7 +43,6 @@ export default function AdminPage() {
       alert('Kunde inte radera matchen.');
       return;
     }
-    await refreshMatches();
     fetchUsers();
   };
 

@@ -35,6 +35,12 @@ export interface Match {
   // Normalized forms (for matching only, do not display these directly)
   normalizedArea?: string;
   normalizedCity?: string;
+  // Local-only flag: mark a match as private (password stored locally for testing)
+  isPrivate?: boolean;
+  // Optional password for private matches (dev-only storage)
+  password?: string;
+  // Authoritative players loaded via `match_players` relationship
+  matchPlayers?: Player[];
 }
 
 export interface Team {

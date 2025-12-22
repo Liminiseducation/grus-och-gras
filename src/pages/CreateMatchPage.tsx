@@ -18,11 +18,13 @@ type CreateMatchFormState = {
   requiresFootballShoes: boolean;
   playStyle: '' | 'spontanspel' | 'träning' | 'match';
   description: string;
+  privateMatch?: boolean;
+  password?: string;
 };
 
 function CreateMatchPage() {
   const navigate = useNavigate();
-  const { addMatch, currentUser } = useMatches();
+  const { addMatch, currentUser, joinMatch } = useMatches();
 
   const user: User | null = currentUser || null;
   const homeCity = user?.homeCity || '';
@@ -41,6 +43,8 @@ function CreateMatchPage() {
     requiresFootballShoes: false,
     playStyle: '' as '' | 'spontanspel' | 'träning' | 'match',
     description: '',
+    privateMatch: false,
+    password: '',
   };
 
   const [formData, setFormData] = useState<CreateMatchFormState>(() => {
@@ -79,7 +83,7 @@ function CreateMatchPage() {
     console.log('Creating match with data:', formData);
     
     try {
-      await addMatch({
+      const inserted = await addMatch({
         title: formData.title,
         area: formData.area,
         city: formData.city || '',
@@ -91,18 +95,39 @@ function CreateMatchPage() {
         requiresFootballShoes: formData.requiresFootballShoes,
         playStyle: formData.playStyle || undefined,
         description: formData.description || undefined,
+        // Store private flags/password with the match data (dev-only)
+        isPrivate: !!formData.privateMatch,
+        password: formData.password || undefined,
       }, user?.id, user?.username);
-      
-      console.log('Match created, navigating to home');
-      navigate('/');
+      console.log('Match created, inserted:', inserted);
+      // Attempt to auto-join the creator so they appear immediately in `match_players`.
+      // We prefer the server-side RPC `joinMatch`, but avoid requiring password
+      // input for the creator. If `addMatch` already recorded the creator
+      // (`creatorInserted`), there's no need to call `joinMatch` and we avoid
+      // duplicate joins.
+      try {
+        if (joinMatch && inserted?.id) {
+          const alreadyInserted = (inserted as any).creatorInserted === true;
+          if (!alreadyInserted) {
+            // If match was created as private, pass the provided password
+            // programmatically so the creator is joined without prompting.
+            await joinMatch(inserted.id, formData.password || undefined);
+          }
+        }
+      } catch (e) {
+        console.warn('Auto-join after create failed (non-fatal):', e);
+      }
+
+      // Clear any saved draft now that creation succeeded
+      clearSavedForm();
+      // Navigate to the newly created match detail so the creator sees membership immediately
+      navigate(`/match/${inserted.id}`);
     } catch (err: any) {
       console.error('Failed to create match:', err);
       const msg = err?.message || String(err) || 'Kunde inte skapa matchen.';
       alert(`Kunde inte skapa matchen: ${msg}`);
     }
   };
-      // clear persisted form state after successful submit
-      clearSavedForm();
 
   // location chip handler removed
 
@@ -160,7 +185,29 @@ function CreateMatchPage() {
             />
           </div>
 
-          {/* Predefined location suggestions removed — users enter location manually. */}
+          <div className="form-field">
+            <label className="field-label">
+              <input
+                type="checkbox"
+                name="privateMatch"
+                checked={!!formData.privateMatch}
+                onChange={(e) => setFormData((prev) => ({ ...prev, privateMatch: e.target.checked }))}
+                style={{ marginRight: 8 }}
+              />
+              Privat match
+            </label>
+            {formData.privateMatch && (
+              <input
+                type="password"
+                id="matchPassword"
+                name="matchPassword"
+                className="text-input"
+                value={formData.password}
+                onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                placeholder="Ange lösenord för privat match"
+              />
+            )}
+          </div>
         </section>
 
         <section className="form-section">

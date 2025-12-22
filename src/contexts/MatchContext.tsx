@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 import type { Match, User } from '../types';
 import { normalizeArea } from '../utils/normalizeArea';
 import { supabase } from '../lib/supabase';
@@ -12,8 +13,8 @@ interface MatchContextType {
   setCurrentUser: (user: User | null) => void;
   // true when we've completed reading any persisted auth info from storage
   authInitialized: boolean;
-  addMatch: (match: Omit<Match, 'id' | 'players' | 'createdBy'>, createdBy?: string, creatorName?: string) => Promise<void>;
-  joinMatch: (matchId: string, player: { id: string; name: string }) => Promise<void>;
+  addMatch: (match: Omit<Match, 'id' | 'players' | 'createdBy'>, createdBy?: string, creatorName?: string) => Promise<any>;
+  joinMatch: (matchId: string, password?: string) => Promise<void>;
   leaveMatch: (matchId: string, playerId: string) => Promise<void>;
   deleteMatch: (matchId: string) => Promise<void>;
   refreshMatches: () => Promise<void>;
@@ -94,6 +95,32 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Sync authenticated profile from AuthContext into MatchContext so
+  // authenticated users are available to join matches without needing
+  // an explicit manual `setCurrentUser` call everywhere.
+  try {
+    const auth = useAuth();
+    useEffect(() => {
+      try {
+        const profile = auth?.profile as any;
+        if (profile && profile.id) {
+          const mapped: User = {
+            id: profile.id,
+            username: profile.name || profile.email || '',
+            role: profile.role || 'user',
+            homeCity: (profile as any).home_city || (profile as any).homeCity || undefined,
+          } as User;
+          // only set if not already present to avoid clobbering local manual sets
+          _setCurrentUser(prev => (prev && prev.id === mapped.id ? prev : mapped));
+        }
+      } catch (e) {
+        // ignore mapping errors
+      }
+    }, [auth?.profile]);
+  } catch (e) {
+    // If AuthContext isn't available for some reason, skip sync.
+  }
+
   const setSelectedArea = (area: string) => {
     const normalized = area ? normalizeArea(area) : '';
     _setSelectedArea(normalized);
@@ -164,15 +191,47 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Restore persisted user from localStorage (if present) on startup.
+  // This ensures a simple page refresh doesn't log the user out.
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const raw = localStorage.getItem(USER_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as User | null;
+        if (parsed && parsed.id) {
+          // Use internal setter to avoid re-persisting immediately
+          _setCurrentUser(parsed);
+          console.info('[match-context] restored currentUser from localStorage');
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+    // run once on startup
+  }, []);
+
   // Fetch matches from Supabase
+  const fetchInFlight = useRef(false);
+
   const fetchMatches = async () => {
+    // Prevent concurrent or re-entrant fetches which can happen in
+    // StrictMode/dev when effects mount/unmount rapidly or focus events
+    // fire multiple times. This avoids flooding the network and UI.
+    if (fetchInFlight.current) {
+      console.debug('fetchMatches: fetch already in progress — skipping');
+      return;
+    }
+    fetchInFlight.current = true;
     try {
       setLoading(true);
       console.log('Fetching matches from Supabase...');
       
+      // Include related `match_players` rows so the authoritative
+      // participant list can be derived from the dedicated table.
       const { data, error } = await supabase
         .from('matches')
-        .select('*')
+        .select('*, match_players(id, match_id, player_name, created_at)')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -194,7 +253,16 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         hasBall: dbMatch.has_ball,
         requiresFootballShoes: dbMatch.requires_football_shoes || false,
         playStyle: dbMatch.play_style,
-        players: dbMatch.players || [],
+        // Prefer `match_players` relationship (flat array) when present,
+        // falling back to legacy `players` JSONB for compatibility.
+        players: (dbMatch.match_players && Array.isArray(dbMatch.match_players))
+          ? dbMatch.match_players.map((mp: any) => ({ id: mp.player_id || mp.id || mp.player_name || '', name: mp.player_name }))
+          : (dbMatch.players || []),
+        // Keep an explicit, authoritative `matchPlayers` array derived from the
+        // `match_players` relationship. UI should use this for membership checks.
+        matchPlayers: (dbMatch.match_players && Array.isArray(dbMatch.match_players))
+          ? dbMatch.match_players.map((mp: any) => ({ id: mp.player_id || mp.id || mp.player_name || '', name: mp.player_name }))
+          : [],
         area: dbMatch.area || dbMatch.city,
         city: dbMatch.city,
         latitude: dbMatch.latitude,
@@ -203,6 +271,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         creatorId: dbMatch.created_by,
         creatorName: dbMatch.creator_name,
         createdAt: dbMatch.created_at,
+        // Map DB-side private flag to client match object (dev-only).
+        // Do NOT include the password in client-visible match objects.
+        isPrivate: !!dbMatch.is_private,
         normalizedArea: normalizeArea(dbMatch.area || dbMatch.city || ''),
         normalizedCity: normalizeArea(dbMatch.city || ''),
       } as Match));
@@ -218,13 +289,31 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error fetching matches:', err);
     } finally {
-      setLoading(false);
+      try { setLoading(false); } catch (e) { /* ignore */ }
+      fetchInFlight.current = false;
     }
   };
 
   // Initial fetch
   useEffect(() => {
     fetchMatches();
+  }, []);
+
+  // Controlled polling: refresh matches every 40 seconds.
+  // Starts once on mount and is cleaned up on unmount. This is intentionally
+  // a single interval located in the central MatchContext to avoid multiple
+  // components triggering fetches and causing request storms.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const id = window.setInterval(() => {
+      try {
+        fetchMatches();
+      } catch (e) {
+        // ignore
+      }
+    }, 40000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Note: Automatic global polling removed. Matches are fetched on mount
@@ -251,7 +340,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       // Convert app format (camelCase) to database format (snake_case)
       // Use currentUser.homeCity as source of truth for match area when available
       const areaFromUser = currentUser?.homeCity || undefined;
-      const dbMatch = {
+      const dbMatchBase: any = {
         title: matchData.title,
         description: matchData.description,
         date: matchData.date,
@@ -271,94 +360,167 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         creator_name: creatorName ?? currentUser?.username ?? null,
       };
 
+      // Optionally include private fields if provided by the form
+      const wantsPrivate = !!((matchData as any).isPrivate || (matchData as any).password);
+      const dbMatchWithPrivate = wantsPrivate ? {
+        ...dbMatchBase,
+        is_private: (matchData as any).isPrivate || false,
+        private_password: (matchData as any).password || null,
+      } : dbMatchBase;
+
       console.log('Inserting match into Supabase with data:', {
-        city: dbMatch.city,
-        date: dbMatch.date,
-        time: dbMatch.time,
-        max_players: dbMatch.max_players,
-        play_style: dbMatch.play_style,
-        creator_name: dbMatch.creator_name
+        city: dbMatchBase.city,
+        date: dbMatchBase.date,
+        time: dbMatchBase.time,
+        max_players: dbMatchBase.max_players,
+        play_style: dbMatchBase.play_style,
+        creator_name: dbMatchBase.creator_name
       });
 
-      const { data, error } = await supabase
-        .from('matches')
-        .insert([dbMatch])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Supabase insert error:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        // Throw a clearer Error so callers can show a helpful message
-        throw new Error(error.message || 'Supabase insert failed');
+      // First attempt: include private fields only if user provided them.
+      let insertResult: any = null;
+      let insertError: any = null;
+      try {
+        const { data, error } = await supabase
+          .from('matches')
+          .insert([dbMatchWithPrivate])
+          .select()
+          .single();
+        insertResult = data;
+        insertError = error;
+      } catch (err) {
+        insertError = err;
       }
 
+      // If the insert failed due to missing columns (older schema), retry without private fields
+      if (insertError) {
+        const msg = String(insertError?.message || insertError);
+        const code = insertError?.code || '';
+        if (wantsPrivate && (code === 'PGRST204' || msg.includes("Could not find the 'is_private'"))) {
+          console.warn('addMatch: DB schema missing private columns, retrying insert without private fields');
+          try {
+            const { data, error } = await supabase
+              .from('matches')
+              .insert([dbMatchBase])
+              .select()
+              .single();
+            insertResult = data;
+            insertError = error;
+          } catch (err) {
+            insertError = err;
+          }
+        }
+      }
+
+      if (insertError) {
+        console.error('❌ Supabase insert error:', insertError);
+        console.error('Error details:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        });
+        throw new Error(insertError.message || 'Supabase insert failed');
+      }
+
+      const data = insertResult;
+
       console.log('✅ Successfully inserted match into Supabase:', data);
-      
+      // After creating a match, ensure the creator is recorded in `match_players`.
+      // Track whether we successfully recorded the creator to avoid duplicate joins.
+      let creatorInserted = false;
+      try {
+        const matchId = data.id;
+        const playerId = data.created_by || createdBy || currentUser?.id || null;
+        const playerName = data.creator_name || creatorName || currentUser?.username || '';
+
+        try {
+          const { error: insertErr } = await supabase
+            .from('match_players')
+            .insert([{ match_id: matchId, player_name: playerName, player_id: playerId }]);
+          if (!insertErr) {
+            creatorInserted = true;
+          } else {
+            const msg = String(insertErr.message || '').toLowerCase();
+            // If player_id column missing, try insert without it
+            if (msg.includes('column "player_id"') || msg.includes('undefined_column')) {
+              const { error: insertErr2 } = await supabase
+                .from('match_players')
+                .insert([{ match_id: matchId, player_name: playerName }]);
+              if (!insertErr2) {
+                creatorInserted = true;
+              } else {
+                const m2 = String(insertErr2.message || '').toLowerCase();
+                if (m2.includes('duplicate') || insertErr2.code === '23505') {
+                  creatorInserted = true; // already present
+                } else {
+                  console.warn('addMatch: insert into match_players failed:', insertErr2);
+                }
+              }
+            } else if (msg.includes('duplicate') || insertErr.code === '23505') {
+              // already present — treat as inserted
+              creatorInserted = true;
+            } else {
+              console.warn('addMatch: insert into match_players failed:', insertErr);
+            }
+          }
+        } catch (ee) {
+          console.warn('addMatch: unexpected error inserting creator into match_players', ee);
+        }
+      } catch (e) {
+        console.warn('addMatch: unexpected error ensuring creator membership', e);
+      }
+
       // Refresh matches from database
       await fetchMatches();
+
+      // Return inserted match object and whether the creator was recorded
+      return { ...data, creatorInserted };
     } catch (err) {
       console.error('❌ Error in addMatch:', err);
       throw err;
     }
   };
   
-  const joinMatch = async (matchId: string, player: { id: string; name: string }) => {
+  const joinMatch = async (matchId: string, providedPassword?: string) => {
     try {
-      console.log('🔵 joinMatch called with:', { matchId, player });
-      const match = matches.find(m => m.id === matchId);
-      if (!match) {
-        console.log('❌ Match not found');
-        return;
-      }
-
-      console.log('Current players:', match.players);
-
-      if (match.players.some(p => p.id === player.id)) {
-        console.log('⚠️ Player already in match');
-        return;
-      }
-      if (match.players.length >= match.maxPlayers) {
-        console.log('⚠️ Match is full');
-        return;
-      }
-
-      // Ensure we don't save a truncated name (e.g. single char). Prefer full local user name when available.
-      let fullName = player.name;
-      if (!fullName || fullName.length <= 1) {
-        try {
+      console.log('🔵 joinMatch called with:', { matchId });
+      console.debug('joinMatch: currentUser(state) =', currentUser);
+      try { console.debug('joinMatch: localStorage user =', localStorage.getItem(USER_STORAGE_KEY)); } catch (e) { /* ignore */ }
+      // Determine joining player's display name (prefer `currentUser`, fallback to localStorage)
+      let playerName = currentUser?.username;
+      try {
+        if ((!playerName || playerName.length <= 1) && typeof window !== 'undefined') {
           const userJson = localStorage.getItem(USER_STORAGE_KEY);
           const storedUser = userJson ? JSON.parse(userJson) : null;
-          if (storedUser?.username) {
-            fullName = storedUser.username;
-          }
-        } catch (e) {
-          // ignore parse errors
+          if (storedUser?.username) playerName = storedUser.username;
         }
+      } catch (e) {
+        // ignore
       }
 
-      const updatedPlayers = [...match.players, { id: player.id, name: fullName }];
-      console.log('Updated players:', updatedPlayers);
+      // Call server-side RPC to perform authoritative join and password check.
+      // Do not perform a separate single-match fetch or cached fallbacks here;
+      // the RPC is authoritative and we will refresh the full list after success.
+      console.debug('joinMatch: calling RPC join_match_secure with', { matchId, providedPasswordLength: providedPassword ? providedPassword.length : 0 });
+      const rpcArgs: any = {
+        p_match_id: matchId,
+        p_player_name: playerName || null,
+        p_password: providedPassword ?? null,
+      };
 
-      const { error } = await supabase
-        .from('matches')
-        .update({ players: updatedPlayers })
-        .eq('id', matchId);
-
-      if (error) {
-        console.error('❌ Supabase update error:', error);
-        throw error;
+      const { data: rpcData, error: rpcError } = await supabase.rpc('join_match_secure', rpcArgs as any);
+      if (rpcError) {
+        console.error('❌ RPC join_match_secure error:', rpcError);
+        // Map common RPC errors to friendlier messages
+        throw new Error(rpcError.message || 'Join failed');
       }
 
-      console.log('✅ Successfully joined match');
+      console.log('✅ RPC join result:', rpcData);
 
-      // Refresh matches
+      // Refresh full matches list so membership (from `match_players`) is authoritative
       await fetchMatches();
+      return rpcData;
     } catch (err) {
       console.error('Error joining match:', err);
       throw err;
@@ -368,26 +530,40 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
   const leaveMatch = async (matchId: string, playerId: string) => {
     try {
-      const match = matches.find(m => m.id === matchId);
-      if (!match) return;
-
-      // Om skaparen lämnar, ta bort även createdBy och creatorName
-      let updateObj: any = {};
-      const updatedPlayers = match.players.filter(p => p.id !== playerId);
-      updateObj.players = updatedPlayers;
-      if (match.createdBy === playerId) {
-        updateObj.created_by = null;
-        updateObj.creator_name = null;
+      // Prefer explicit playerId argument, otherwise derive from currentUser
+      const currentUserId = playerId || currentUser?.id;
+      const playerName = currentUser?.username || null;
+      if (!currentUserId && !playerName) {
+        console.warn('leaveMatch: cannot determine current user');
+        throw new Error('Not authenticated');
       }
 
-      const { error } = await supabase
-        .from('matches')
-        .update(updateObj)
-        .eq('id', matchId);
+      // Try deleting by player_id first (preferred)
+      let { error } = await supabase
+        .from('match_players')
+        .delete()
+        .eq('match_id', matchId)
+        .eq('player_id', currentUserId);
 
-      if (error) throw error;
+      if (error) {
+        // If the player_id column is not present or delete failed, try by player_name
+        console.warn('leaveMatch: delete by player_id failed, trying by player_name', error);
+        if (playerName) {
+          const res = await supabase
+            .from('match_players')
+            .delete()
+            .eq('match_id', matchId)
+            .eq('player_name', playerName);
+          error = res.error;
+        }
+      }
 
-      // Refresh matches
+      if (error) {
+        console.error('leaveMatch: error deleting from match_players', error);
+        throw error;
+      }
+
+      // Refresh matches so UI reflects updated membership
       await fetchMatches();
     } catch (err) {
       console.error('Error leaving match:', err);

@@ -1,12 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useMatches } from '../contexts/MatchContext';
 import PlayerAvatar from '../components/PlayerAvatar';
+import PasswordModal from '../components/PasswordModal';
 import './MatchDetailsPage.css';
 
 function MatchDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { matches, joinMatch, leaveMatch, deleteMatch } = useMatches();
+
+  const [joinPassword, setJoinPassword] = useState<string | undefined>(undefined);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const loading = !matches;
   const match = matches ? matches.find(m => m.id === id) : undefined;
@@ -17,7 +22,14 @@ function MatchDetailsPage() {
   const { currentUser } = useMatches();
   const currentUserId = currentUser?.id || '';
 
-  const isMember = !!match?.players?.some((p: any) => p.id === currentUserId);
+  // Determine membership based on authoritative `matchPlayers` returned
+  // from Supabase `match_players` relationship. Check both `player_id` and
+  // `player_name` to support rows created before `player_id` existed.
+  const isMember = !!match?.matchPlayers?.some((p: any) => {
+    const pid = (p as any).id || (p as any).player_id || '';
+    const pname = (p as any).name || (p as any).player_name || '';
+    return pid === currentUserId || pname === (currentUser?.username || '');
+  });
   const isCreator = match ? ((match.createdBy || (match as any).creatorId) === currentUserId) : false;
   const isFull = match ? (match.players.length >= (match.maxPlayers || 0)) : false;
   const players = match?.players || [];
@@ -30,7 +42,38 @@ function MatchDetailsPage() {
     try {
       console.log('Join clicked', { matchId: match?.id, userId: currentUserId });
       if (!match || !joinMatch) return;
-      await joinMatch(match.id, { id: currentUserId, name: currentUser?.username || '' });
+      if (!currentUserId) {
+        const ok = window.confirm('Du måste vara inloggad för att gå med i en match. Vill du logga in nu?');
+        if (ok) navigate('/auth/login');
+        return;
+      }
+      // If this match is marked private, show modal to collect password (no window.prompt)
+      if (match.isPrivate) {
+        // Only show the modal if user is not already a member
+        if (isMember) return;
+        setShowPasswordModal(true);
+        return;
+      }
+
+      try {
+        console.debug('MatchDetails: calling joinMatch with no password');
+        await joinMatch(match.id, undefined);
+      } catch (err: any) {
+        const msg = String(err || '').toLowerCase();
+        if (msg.includes('password') || msg.includes('invalid')) {
+          alert('Fel lösenord — kunde inte gå med i matchen.');
+          return;
+        }
+        if (msg.includes('match not found') || msg.includes('not found')) {
+          alert('Matchen hittades inte eller har tagits bort.');
+          return;
+        }
+        if (msg.includes('already') || msg.includes('joined')) {
+          alert('Du är redan med i matchen');
+          return;
+        }
+        throw err;
+      }
     } catch (err) {
       console.error('Error joining:', err);
     }
@@ -57,6 +100,29 @@ function MatchDetailsPage() {
       navigate('/');
     } catch (err) {
       console.error('Error deleting:', err);
+    }
+  };
+
+  const handlePasswordSubmit = async (password: string) => {
+    try {
+      setShowPasswordModal(false);
+      setJoinPassword(password);
+      await joinMatch?.(match?.id || '', password);
+    } catch (err: any) {
+      const msg = String(err || '').toLowerCase();
+      if (msg.includes('password') || msg.includes('invalid')) {
+        alert('Fel lösenord — kunde inte gå med i matchen.');
+        return;
+      }
+      if (msg.includes('match not found') || msg.includes('not found')) {
+        alert('Matchen hittades inte eller har tagits bort.');
+        return;
+      }
+      if (msg.includes('already') || msg.includes('joined')) {
+        alert('Du är redan med i matchen');
+        return;
+      }
+      console.error('Error joining with password:', err);
     }
   };
 
@@ -246,7 +312,6 @@ function MatchDetailsPage() {
             <button
               className={`join-primary ${isFull || !currentUserId ? 'join-disabled' : ''}`}
               onClick={handleJoin}
-              disabled={isFull || !currentUserId}
             >
               {isFull ? 'Fullt — kan inte anmäla' : 'Gå med i match'}
             </button>
@@ -265,6 +330,12 @@ function MatchDetailsPage() {
           </div>
         )}
       </div>
+      <PasswordModal
+        open={showPasswordModal}
+        initialPassword={joinPassword}
+        onSubmit={handlePasswordSubmit}
+        onClose={() => setShowPasswordModal(false)}
+      />
       </div>
     </div>
   );

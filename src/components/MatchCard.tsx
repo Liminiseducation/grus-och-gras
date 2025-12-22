@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '../types';
-import PlayerAvatar from './PlayerAvatar';
 import './MatchCard.css';
 
 interface MatchCardProps {
@@ -8,8 +7,7 @@ interface MatchCardProps {
 }
 
 function MatchCard({ match }: MatchCardProps) {
-  const visiblePlayers = match.players.slice(0, 4);
-  const remainingCount = match.players.length - 4;
+  
 
   return (
     <Link to={`/match/${match.id}`} className="match-card">
@@ -36,16 +34,6 @@ function MatchCard({ match }: MatchCardProps) {
       </div>
 
       <div className="match-players">
-        <div className="player-avatars">
-          {visiblePlayers.map((player) => (
-            <PlayerAvatar key={player.id} name={player.name} />
-          ))}
-          {remainingCount > 0 && (
-            <div className="avatar avatar-more">
-              +{remainingCount}
-            </div>
-          )}
-        </div>
         <span className="player-count">
           {match.players.length} / {match.maxPlayers} spelare
         </span>
@@ -60,6 +48,7 @@ function MatchCard({ match }: MatchCardProps) {
           <span>{match.time}</span>
         </div>
       </div>
+      <div className="match-actions" />
     </Link>
   );
 }

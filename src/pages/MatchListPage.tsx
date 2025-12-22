@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useMatches } from '../contexts/MatchContext';
-import { normalizeArea } from '../utils/normalizeArea';
 import MatchCard from '../components/MatchCard';
 import Header from '../components/Header';
 import FloatingActionButton from '../components/FloatingActionButton';
@@ -47,17 +46,12 @@ function MatchListPage() {
     }
 
     if (!timeOk) return false;
-
-    // Area check — only show matches for the user's current home city
-    const effectiveSelected = normalizeArea(homeCity || '');
-    if (!effectiveSelected) return false;
-
-    const matchAreaNorm = (match && (match.normalizedArea || normalizeArea(match.area || '')) ) as string;
-    const matchCityNorm = (match && (match.normalizedCity || normalizeArea(match.city || '')) ) as string;
-    // Include matches missing an area/city (do not filter them out)
-    if (!matchAreaNorm && !matchCityNorm) return true;
-    return matchAreaNorm === effectiveSelected || matchCityNorm === effectiveSelected;
+    // No area filtering here: show all matches that pass the time check.
+    return true;
   });
+
+  // Note: match fetching is handled centrally in MatchContext. This view
+  // must not trigger fetches on mount or navigation to avoid loops.
   return (
     <div className="match-list-page">
       <Header />
@@ -83,29 +77,23 @@ function MatchListPage() {
 
       <div className="matches-container">
         {loading ? (
-            <div className="empty-state">
-              <div className="empty-icon">⏳</div>
-              <h3 className="empty-title">Laddar matcher...</h3>
-            </div>
-          ) : !(normalizeArea(homeCity || '')) ? (
-            <div className="empty-state">
-              <div className="empty-icon">📍</div>
-              <h3 className="empty-title">Välj ett område för att se matcher</h3>
-              <p className="empty-message">Tryck på "Byt stad" för att välja din stad.</p>
-            </div>
-          ) : filteredMatches.length > 0 ? (
-            filteredMatches.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))
-          ) : (
-            <div className="empty-state">
-              <div className="empty-icon">⚽</div>
-              <h3 className="empty-title">Inga matcher i dina områden just nu</h3>
-              <p className="empty-message">
-                Var den första! Skapa en match så kommer andra snart med.
-              </p>
-            </div>
-          )}
+          <div className="empty-state">
+            <div className="empty-icon">⏳</div>
+            <h3 className="empty-title">Laddar matcher...</h3>
+          </div>
+        ) : filteredMatches.length > 0 ? (
+          filteredMatches.map((match) => (
+            <MatchCard key={match.id} match={match} />
+          ))
+        ) : (
+          <div className="empty-state">
+            <div className="empty-icon">⚽</div>
+            <h3 className="empty-title">Inga matcher just nu</h3>
+            <p className="empty-message">
+              Var den första! Skapa en match så kommer andra snart med.
+            </p>
+          </div>
+        )}
       </div>
 
       <FloatingActionButton />
