@@ -155,6 +155,7 @@ function CreateMatchPage() {
       </header>
 
       <form onSubmit={handleSubmit} className="create-form">
+        
         <section className="form-section">
           <h2 className="section-heading">Plats</h2>
           
@@ -273,25 +274,45 @@ function CreateMatchPage() {
             </select>
           </div>
 
+          {/* Player selection: behavior depends on selected `playStyle` */}
           <div className="form-field">
-            <label htmlFor="maxPlayers" className="field-label">
-              Antal spelare
-            </label>
-            <select
-              id="maxPlayers"
-              name="maxPlayers"
-              className="select-input"
-              value={formData.maxPlayers}
-              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, maxPlayers: e.target.value }))}
-              required
-            >
-              <option value="6">6 spelare (3 mot 3)</option>
-              <option value="8">8 spelare (4 mot 4)</option>
-              <option value="10">10 spelare (5 mot 5)</option>
-              <option value="12">12 spelare (6 mot 6)</option>
-              <option value="14">14 spelare (7 mot 7)</option>
-              <option value="16">16 spelare (8 mot 8)</option>
-            </select>
+            <label htmlFor="playerSelector" className="field-label">Spelare</label>
+            {formData.playStyle === 'träning' ? (
+              <div>
+                <label htmlFor="maxPlayers" className="field-label">Antal spelare (träning)</label>
+                <input
+                  id="maxPlayers"
+                  name="maxPlayers"
+                  type="number"
+                  className="text-input"
+                  min={1}
+                  max={99}
+                  value={formData.maxPlayers}
+                  onChange={(e) => {
+                    const num = Math.max(1, Math.min(99, Number(e.target.value || 1)));
+                    setFormData((prev: CreateMatchFormState) => ({ ...prev, maxPlayers: String(num) }));
+                  }}
+                  required
+                />
+                <p className="field-helper">Ange totalt antal deltagare vid träning.</p>
+              </div>
+            ) : (
+              <select
+                id="maxPlayers"
+                name="maxPlayers"
+                className="select-input"
+                value={formData.maxPlayers}
+                onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, maxPlayers: e.target.value }))}
+                required
+              >
+                <option value="4">4 spelare (2 mot 2)</option>
+                <option value="6">6 spelare (3 mot 3)</option>
+                <option value="10">10 spelare (5 mot 5)</option>
+                <option value="14">14 spelare (7 mot 7)</option>
+                <option value="18">18 spelare (9 mot 9)</option>
+                <option value="22">22 spelare (11 mot 11)</option>
+              </select>
+            )}
           </div>
 
           <div className="form-field">
