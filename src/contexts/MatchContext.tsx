@@ -374,9 +374,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         error = res.error;
         if (error) throw error;
       } catch (err) {
-        const msg = String(err?.message || '').toLowerCase();
+        const msg = String(((err as any)?.message || '')).toLowerCase();
         // If error indicates missing player_id column, retry without it
-        if (String(err?.code || '').toLowerCase() === '42703' || msg.includes('player_id') || msg.includes('could not find')) {
+        if (String(((err as any)?.code || '')).toLowerCase() === '42703' || msg.includes('player_id') || msg.includes('could not find')) {
           try {
             const res2 = await supabase
               .from('matches')
@@ -551,8 +551,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
       // If the insert failed due to missing columns (older schema), retry without private fields
       if (insertError) {
-        const msg = String(insertError?.message || insertError);
-        const code = insertError?.code || '';
+        const msg = String(((insertError as any)?.message) || insertError);
+        const code = (insertError as any)?.code || '';
         if (wantsPrivate && (code === 'PGRST204' || msg.includes("Could not find the 'is_private'"))) {
           console.warn('addMatch: DB schema missing private columns, retrying insert without private fields');
           try {
@@ -569,7 +569,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         }
         // If the insert failed because `city_key` column doesn't exist, retry without it
         if (insertError) {
-          const msg2 = String(insertError?.message || '').toLowerCase();
+          const msg2 = String(((insertError as any)?.message || '')).toLowerCase();
           if (msg2.includes('city_key') || msg2.includes("could not find the 'city_key'")) {
             // If DB lacks `city_key` column, surface the error (no fallback).
           }
@@ -579,15 +579,15 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       if (insertError) {
         console.error('❌ Supabase insert error:', insertError);
         console.error('Error details:', {
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code
+          message: (insertError as any)?.message,
+          details: (insertError as any)?.details,
+          hint: (insertError as any)?.hint,
+          code: (insertError as any)?.code
         });
-        throw new Error(insertError.message || 'Supabase insert failed');
+        throw new Error(((insertError as any)?.message) || 'Supabase insert failed');
       }
 
-      const data = insertResult;
+      let data = insertResult as any;
 
       // Log full insert result shape for debugging when IDs are missing
       console.log('✅ Successfully inserted match into Supabase:', data);
@@ -599,7 +599,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
           console.info('addMatch: attempting fallback lookup for inserted match using city/date/time/creator_name');
           // Try to find the inserted match by matching unique-ish fields.
           // This is a best-effort fallback when the insert response didn't return an id.
-          const q = supabase.from('matches')
+          let q = supabase.from('matches')
             .select('*')
             .eq('city', dbMatchBase.city)
             .eq('date', dbMatchBase.date)
@@ -643,9 +643,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
           } else {
             // Better logging for insert errors to help diagnose schema/permission issues
             console.error('addMatch: match_players insert error details:', insertErr);
-            const msg = String(insertErr.message || '').toLowerCase();
+            const msg = String(((insertErr as any)?.message || '')).toLowerCase();
             // If player_id column missing or schema mismatch, try insert without it
-            const playerIdMissing = insertErr?.code === 'PGRST204' || msg.includes('player_id') || msg.includes('could not find');
+            const playerIdMissing = (insertErr as any)?.code === 'PGRST204' || msg.includes('player_id') || msg.includes('could not find');
             if (playerIdMissing) {
               try {
                 const { error: insertErr2 } = await supabase
@@ -654,8 +654,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
                 if (!insertErr2) {
                   creatorInserted = true;
                 } else {
-                  const m2 = String(insertErr2.message || '').toLowerCase();
-                  if (m2.includes('duplicate') || insertErr2.code === '23505') {
+                  const m2 = String(((insertErr2 as any)?.message || '')).toLowerCase();
+                  if (m2.includes('duplicate') || (insertErr2 as any)?.code === '23505') {
                     creatorInserted = true; // already present
                   } else {
                     console.warn('addMatch: insert into match_players failed (fallback):', insertErr2);

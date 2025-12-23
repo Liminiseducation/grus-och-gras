@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import CityChangeModal from '../components/CityChangeModal';
 
 function MatchListPage() {
-  const { matches, loading, currentUser, setCurrentUser, selectedArea, setSelectedArea } = useMatches();
+  const { matches, loading, currentUser, setCurrentUser, setSelectedArea } = useMatches();
   // Get user's home city from app state (persistent authenticated user)
   const homeCity = currentUser?.homeCity || '';
   const currentUserId = currentUser?.id || '';

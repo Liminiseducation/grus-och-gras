@@ -129,7 +129,7 @@ function CreateMatchPage() {
       navigate(`/match/${inserted.id}`);
     } catch (err: any) {
       console.error('Failed to create match:', err);
-      const msg = err?.message || String(err) || 'Kunde inte skapa matchen.';
+      const msg = ((err as any)?.message) || String(err) || 'Kunde inte skapa matchen.';
       alert(`Kunde inte skapa matchen: ${msg}`);
     }
   };
