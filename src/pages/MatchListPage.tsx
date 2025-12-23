@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMatches } from '../contexts/MatchContext';
+import { normalizeArea } from '../utils/normalizeArea';
 import MatchCard from '../components/MatchCard';
 import Header from '../components/Header';
 import FloatingActionButton from '../components/FloatingActionButton';
@@ -8,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import CityChangeModal from '../components/CityChangeModal';
 
 function MatchListPage() {
-  const { matches, loading, currentUser, setCurrentUser } = useMatches();
+  const { matches, loading, currentUser, setCurrentUser, selectedArea, setSelectedArea } = useMatches();
   // Get user's home city from app state (persistent authenticated user)
   const homeCity = currentUser?.homeCity || '';
   const currentUserId = currentUser?.id || '';
@@ -50,6 +51,10 @@ function MatchListPage() {
     return true;
   });
 
+  // Do not apply city filtering in this view — show all matches that
+  // pass the time-based `filteredMatches` check.
+  const visibleMatches = filteredMatches;
+
   // Note: match fetching is handled centrally in MatchContext. This view
   // must not trigger fetches on mount or navigation to avoid loops.
   return (
@@ -70,6 +75,7 @@ function MatchListPage() {
             try { await supabase.from('profiles').update({ home_city: updated.homeCity }).eq('id', currentUser.id); } catch (e) {}
             try { await supabase.from('users').update({ home_city: updated.homeCity }).eq('id', currentUser.id); } catch (e) {}
             setCurrentUser(updated);
+            try { setSelectedArea(normalizeArea(newCity)); } catch (e) { /* ignore */ }
             setShowCityModal(false);
           }}
         />
@@ -81,8 +87,8 @@ function MatchListPage() {
             <div className="empty-icon">⏳</div>
             <h3 className="empty-title">Laddar matcher...</h3>
           </div>
-        ) : filteredMatches.length > 0 ? (
-          filteredMatches.map((match) => (
+        ) : visibleMatches.length > 0 ? (
+          visibleMatches.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))
         ) : (

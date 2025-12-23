@@ -6,9 +6,10 @@ type Props = {
   initialPassword?: string;
   onSubmit: (password: string) => void;
   onClose: () => void;
+  errorText?: string | null;
 };
 
-export default function PasswordModal({ open, initialPassword = '', onSubmit, onClose }: Props) {
+export default function PasswordModal({ open, initialPassword = '', onSubmit, onClose, errorText = null }: Props) {
   const [value, setValue] = useState(initialPassword || '');
 
   useEffect(() => setValue(initialPassword || ''), [initialPassword]);
@@ -28,6 +29,12 @@ export default function PasswordModal({ open, initialPassword = '', onSubmit, on
           type="password"
           autoFocus
         />
+
+        {errorText && (
+          <div className="modal-error" role="alert" aria-live="polite" style={{ marginTop: 8 }}>
+            {errorText}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button

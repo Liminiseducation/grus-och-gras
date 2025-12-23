@@ -100,6 +100,11 @@ function CreateMatchPage() {
         password: formData.password || undefined,
       }, user?.id, user?.username);
       console.log('Match created, inserted:', inserted);
+      if (!inserted || !inserted.id) {
+        console.error('CreateMatch: addMatch returned no id:', inserted);
+        alert('Match skapades men servern returnerade inget id. Försök uppdatera sidan eller kontakta support.');
+        return;
+      }
       // Attempt to auto-join the creator so they appear immediately in `match_players`.
       // We prefer the server-side RPC `joinMatch`, but avoid requiring password
       // input for the creator. If `addMatch` already recorded the creator

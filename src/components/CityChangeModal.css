@@ -22,3 +22,9 @@
 .city-modal h3 {
   margin: 0 0 8px 0;
 }
+
+.modal-error {
+  color: #a2232f; /* subtle red */
+  font-size: 0.95rem;
+  background: transparent;
+}

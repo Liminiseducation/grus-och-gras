@@ -18,6 +18,7 @@ interface MatchContextType {
   leaveMatch: (matchId: string, playerId: string) => Promise<void>;
   deleteMatch: (matchId: string) => Promise<void>;
   refreshMatches: () => Promise<void>;
+  getMatchById: (id: string) => Promise<Match | null>;
   // DEV only helpers
   deleteEmptyMatches?: () => Promise<void>;
   deleteMatchesOlderThan?: (days: number) => Promise<void>;
@@ -63,6 +64,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       return '';
     }
   });
+  
 
   // Do not auto-hydrate currentUser from localStorage for onboarding decisions.
   // Require explicit login to populate `currentUser` so onboarding is stable.
@@ -117,6 +119,31 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         // ignore mapping errors
       }
     }, [auth?.profile]);
+    
+    // ONE-TIME fallback: if there's no selectedArea from localStorage/UI,
+    // allow the authenticated profile's homeCity to initialize selectedArea
+    // once at startup. Do NOT overwrite selectedArea after it has been set
+    // by the UI (or persisted in localStorage).
+    useEffect(() => {
+      try {
+        const profile = auth?.profile as any;
+        if (!profile) return;
+        const homeCity = profile.home_city || profile.homeCity || '';
+        if (!homeCity) return;
+        // If there's already a selected area stored in localStorage or state, do nothing.
+        try {
+          const stored = typeof window !== 'undefined' ? localStorage.getItem(SELECTED_AREA_KEY) : null;
+          if (!stored && !selectedArea) {
+            // Only set once as an initial default (will persist via setSelectedArea)
+            setSelectedArea(homeCity);
+          }
+        } catch (e) {
+          // ignore storage errors
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, [auth?.profile]);
   } catch (e) {
     // If AuthContext isn't available for some reason, skip sync.
   }
@@ -131,6 +158,15 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         } else {
           localStorage.removeItem(SELECTED_AREA_KEY);
         }
+      }
+    } catch (e) {
+      // ignore
+    }
+    // If the user explicitly clears the selected area, clear matches
+    // (this is the ONE allowed case to empty the list).
+    try {
+      if (!normalized) {
+        setMatches([]);
       }
     } catch (e) {
       // ignore
@@ -211,31 +247,58 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     // run once on startup
   }, []);
 
-  // Fetch matches from Supabase
-  const fetchInFlight = useRef(false);
-
-  const fetchMatches = async () => {
-    // Prevent concurrent or re-entrant fetches which can happen in
-    // StrictMode/dev when effects mount/unmount rapidly or focus events
-    // fire multiple times. This avoids flooding the network and UI.
-    if (fetchInFlight.current) {
-      console.debug('fetchMatches: fetch already in progress — skipping');
-      return;
-    }
-    fetchInFlight.current = true;
+  // When `currentUser` becomes available after login, if there's no
+  // `selectedArea` yet but the user's `homeCity` exists, initialize the
+  // selected area from the profile. Do NOT call `fetchMatches` here;
+  // the existing `useEffect` that watches `selectedArea` will handle
+  // fetching. This effect depends only on `currentUser` per requirements.
+  useEffect(() => {
     try {
+      if (!currentUser) return;
+      const home = currentUser.homeCity || (currentUser as any).home_city || '';
+      if (!home) return;
+      if (!selectedArea) {
+        setSelectedArea(home);
+      }
+    } catch (e) {
+      // ignore
+    }
+    // intentionally only depends on currentUser
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  // Fetch matches from Supabase
+  const fetchMatches = async (selectedCity?: string) => {
+    try {
+      console.log('[fetchMatches]', { selectedArea });
       setLoading(true);
-      console.log('Fetching matches from Supabase...');
-      
+      const cityToUse = selectedCity ?? selectedArea ?? '';
+
+      // Enforce strict server-side filtering: when no city is selected,
+      // do not fetch global results. IMPORTANT: do NOT clear existing
+      // `matches` here — leaving the current list intact prevents transient
+      // navigation or UI flows from wiping the UI. Simply skip fetching.
+      if (!cityToUse) {
+        try { setLoading(false); } catch (e) { /* ignore */ }
+        console.debug('fetchMatches: no city selected — skipping fetch (preserve existing matches)');
+        return;
+      }
+
+      console.log(`fetchMatches(${cityToUse})`);
+
       // Include related `match_players` rows so the authoritative
       // participant list can be derived from the dedicated table.
       const { data, error } = await supabase
         .from('matches')
         .select('*, match_players(id, match_id, player_name, created_at)')
+        .eq('city_key', cityToUse)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase error:', error);
+        console.error('Supabase error fetching matches:', error);
+        // On error, do NOT clear matches — leave previous list intact
+        // so transient errors do not wipe the UI. The UI will keep showing
+        // last-known matches until a successful fetch replaces them.
         return;
       }
 
@@ -278,26 +341,116 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         normalizedCity: normalizeArea(dbMatch.city || ''),
       } as Match));
 
-      // TODO: Temporarily disable active/time/expiry filtering and return all fetched matches.
-      // Previously we filtered out expired matches here:
-      // const activeMatches = filterActiveMatches(formattedMatches);
-      // console.log('Active matches:', activeMatches);
-      // setMatches(activeMatches);
-      // For debugging/QA, set all fetched matches directly:
-      console.log('All fetched matches (no filtering):', formattedMatches);
+      // Set fetched, server-filtered matches as the single source of truth
+      // for the UI. Do not apply client-side city filtering here.
+      console.log('All fetched matches (server-filtered):', formattedMatches);
       setMatches(formattedMatches);
+      try { console.log('setMatches(', (formattedMatches || []).length, ')'); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error('Error fetching matches:', err);
     } finally {
       try { setLoading(false); } catch (e) { /* ignore */ }
-      fetchInFlight.current = false;
     }
   };
 
-  // Initial fetch
+  // Fetch a single match by id WITHOUT applying any city filter. This is
+  // used by detail pages that must load a match regardless of the current
+  // `selectedArea` filter.
+  const getMatchById = async (id: string): Promise<Match | null> => {
+    try {
+      if (!id) return null;
+      // First attempt: include `player_id` in the related `match_players` select.
+      // If the DB schema doesn't include `player_id`, PostgREST will return
+      // a 400/42703. In that case, retry without requesting `player_id`.
+      let data: any = null;
+      let error: any = null;
+      try {
+        const res = await supabase
+          .from('matches')
+          .select('*, match_players(id, match_id, player_name, player_id, created_at)')
+          .eq('id', id)
+          .single();
+        data = res.data;
+        error = res.error;
+        if (error) throw error;
+      } catch (err) {
+        const msg = String(err?.message || '').toLowerCase();
+        // If error indicates missing player_id column, retry without it
+        if (String(err?.code || '').toLowerCase() === '42703' || msg.includes('player_id') || msg.includes('could not find')) {
+          try {
+            const res2 = await supabase
+              .from('matches')
+              .select('*, match_players(id, match_id, player_name, created_at)')
+              .eq('id', id)
+              .single();
+            data = res2.data;
+            error = res2.error;
+            if (error) {
+              console.warn('getMatchById: supabase error on fallback select', error);
+              return null;
+            }
+          } catch (err2) {
+            console.warn('getMatchById: supabase error on fallback select', err2);
+            return null;
+          }
+        } else {
+          console.warn('getMatchById: supabase error', err);
+          return null;
+        }
+      }
+      if (!data) return null;
+      if (!data) return null;
+      const dbMatch: any = data;
+      const formatted: Match = {
+        id: dbMatch.id,
+        title: dbMatch.title,
+        description: dbMatch.description,
+        date: dbMatch.date,
+        time: dbMatch.time,
+        maxPlayers: dbMatch.max_players,
+        surface: dbMatch.surface,
+        hasBall: dbMatch.has_ball,
+        requiresFootballShoes: dbMatch.requires_football_shoes || false,
+        playStyle: dbMatch.play_style,
+        players: (dbMatch.match_players && Array.isArray(dbMatch.match_players))
+          ? dbMatch.match_players.map((mp: any) => ({ id: mp.player_id || mp.id || mp.player_name || '', name: mp.player_name }))
+          : (dbMatch.players || []),
+        matchPlayers: (dbMatch.match_players && Array.isArray(dbMatch.match_players))
+          ? dbMatch.match_players.map((mp: any) => ({ id: mp.player_id || mp.id || mp.player_name || '', name: mp.player_name }))
+          : [],
+        area: dbMatch.area || dbMatch.city,
+        city: dbMatch.city,
+        latitude: dbMatch.latitude,
+        longitude: dbMatch.longitude,
+        createdBy: dbMatch.created_by,
+        creatorId: dbMatch.created_by,
+        creatorName: dbMatch.creator_name,
+        createdAt: dbMatch.created_at,
+        isPrivate: !!dbMatch.is_private,
+        normalizedArea: normalizeArea(dbMatch.area || dbMatch.city || ''),
+        normalizedCity: normalizeArea(dbMatch.city || ''),
+      } as Match;
+      return formatted;
+    } catch (err) {
+      console.error('getMatchById: unexpected error', err);
+      return null;
+    }
+  };
+
+  // Fetch matches initially and whenever the selected area changes so
+  // the server-side filter is applied immediately.
   useEffect(() => {
-    fetchMatches();
-  }, []);
+    // When selectedArea changes, fetch for the canonical selectedArea.
+    // DO NOT clear the existing `matches` here — preserve the list until
+    // a successful fetch updates it. This avoids transient wipes during
+    // navigation or UI changes.
+    if (selectedArea) {
+      fetchMatches(selectedArea).catch(err => console.warn('fetchMatches failed:', err));
+    } else {
+      console.debug('fetchMatches skipped (initial): selectedArea empty');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedArea]);
 
   // Controlled polling: refresh matches every 40 seconds.
   // Starts once on mount and is cleaned up on unmount. This is intentionally
@@ -307,14 +460,17 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     const id = window.setInterval(() => {
       try {
-        fetchMatches();
+        if (selectedArea) {
+          fetchMatches(selectedArea);
+        } else {
+          // skip fetch when no selectedArea
+        }
       } catch (e) {
         // ignore
       }
     }, 40000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedArea]);
 
   // Note: Automatic global polling removed. Matches are fetched on mount
   // (see the initial fetch above) and can be refreshed manually via
@@ -354,6 +510,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         // Prefer user's stored area; fall back to provided area or city
         area: areaFromUser ?? matchData.area ?? matchData.city,
         city: areaFromUser ?? matchData.city ?? matchData.area,
+        city_key: normalizeArea(areaFromUser ?? matchData.area ?? matchData.city ?? ''),
         latitude: matchData.latitude,
         longitude: matchData.longitude,
         created_by: createdBy ?? currentUser?.id ?? null,
@@ -410,6 +567,13 @@ export function MatchProvider({ children }: { children: ReactNode }) {
             insertError = err;
           }
         }
+        // If the insert failed because `city_key` column doesn't exist, retry without it
+        if (insertError) {
+          const msg2 = String(insertError?.message || '').toLowerCase();
+          if (msg2.includes('city_key') || msg2.includes("could not find the 'city_key'")) {
+            // If DB lacks `city_key` column, surface the error (no fallback).
+          }
+        }
       }
 
       if (insertError) {
@@ -425,7 +589,43 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
       const data = insertResult;
 
+      // Log full insert result shape for debugging when IDs are missing
       console.log('✅ Successfully inserted match into Supabase:', data);
+      try { console.debug('addMatch: raw insertResult keys:', data && Object.keys(data)); } catch (e) { /* ignore */ }
+
+      if (!data || !data.id) {
+        console.warn('addMatch: inserted data missing `id` field — insertResult:', data);
+        try {
+          console.info('addMatch: attempting fallback lookup for inserted match using city/date/time/creator_name');
+          // Try to find the inserted match by matching unique-ish fields.
+          // This is a best-effort fallback when the insert response didn't return an id.
+          const q = supabase.from('matches')
+            .select('*')
+            .eq('city', dbMatchBase.city)
+            .eq('date', dbMatchBase.date)
+            .eq('time', dbMatchBase.time);
+          if (dbMatchBase.creator_name) (q as any) = (q as any).eq('creator_name', dbMatchBase.creator_name);
+          const { data: foundArr, error: foundErr } = await (q as any).order('created_at', { ascending: false }).limit(1);
+          if (foundErr) {
+            console.warn('addMatch: fallback lookup error:', foundErr);
+          } else if (foundArr && Array.isArray(foundArr) && foundArr.length > 0) {
+            console.info('addMatch: fallback lookup found candidate:', foundArr[0]);
+            // Prefer the found row as the authoritative inserted row
+            // NOTE: keep `data` shaped as returned by previous insertResult for downstream logic
+            // so we only overwrite id/created_by/creator_name if present.
+            const found = foundArr[0];
+            data = { ...(data || {}), ...found };
+          } else {
+            console.info('addMatch: fallback lookup found no candidates');
+          }
+        } catch (e) {
+          console.warn('addMatch: fallback lookup failed unexpectedly', e);
+        }
+      }
+      // NOTE: Do NOT automatically change `selectedArea` when a match is
+      // created. selectedArea is single source of truth controlled by the
+      // UI (or initial localStorage/profile fallback). Avoid changing it
+      // here to prevent background overwrites.
       // After creating a match, ensure the creator is recorded in `match_players`.
       // Track whether we successfully recorded the creator to avoid duplicate joins.
       let creatorInserted = false;
@@ -441,27 +641,34 @@ export function MatchProvider({ children }: { children: ReactNode }) {
           if (!insertErr) {
             creatorInserted = true;
           } else {
+            // Better logging for insert errors to help diagnose schema/permission issues
+            console.error('addMatch: match_players insert error details:', insertErr);
             const msg = String(insertErr.message || '').toLowerCase();
-            // If player_id column missing, try insert without it
-            if (msg.includes('column "player_id"') || msg.includes('undefined_column')) {
-              const { error: insertErr2 } = await supabase
-                .from('match_players')
-                .insert([{ match_id: matchId, player_name: playerName }]);
-              if (!insertErr2) {
-                creatorInserted = true;
-              } else {
-                const m2 = String(insertErr2.message || '').toLowerCase();
-                if (m2.includes('duplicate') || insertErr2.code === '23505') {
-                  creatorInserted = true; // already present
+            // If player_id column missing or schema mismatch, try insert without it
+            const playerIdMissing = insertErr?.code === 'PGRST204' || msg.includes('player_id') || msg.includes('could not find');
+            if (playerIdMissing) {
+              try {
+                const { error: insertErr2 } = await supabase
+                  .from('match_players')
+                  .insert([{ match_id: matchId, player_name: playerName }]);
+                if (!insertErr2) {
+                  creatorInserted = true;
                 } else {
-                  console.warn('addMatch: insert into match_players failed:', insertErr2);
+                  const m2 = String(insertErr2.message || '').toLowerCase();
+                  if (m2.includes('duplicate') || insertErr2.code === '23505') {
+                    creatorInserted = true; // already present
+                  } else {
+                    console.warn('addMatch: insert into match_players failed (fallback):', insertErr2);
+                  }
                 }
+              } catch (ee2) {
+                console.warn('addMatch: unexpected error inserting creator into match_players (fallback)', ee2);
               }
             } else if (msg.includes('duplicate') || insertErr.code === '23505') {
               // already present — treat as inserted
               creatorInserted = true;
             } else {
-              console.warn('addMatch: insert into match_players failed:', insertErr);
+              console.warn('addMatch: insert into match_players failed (unhandled):', insertErr);
             }
           }
         } catch (ee) {
@@ -471,11 +678,26 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         console.warn('addMatch: unexpected error ensuring creator membership', e);
       }
 
-      // Refresh matches from database
-      await fetchMatches();
+      // Refresh matches from database for the created city (so creator sees it)
+      // Prefer using the newly-set selectedArea (which was normalized above).
+      try {
+        const currentCity = (areaFromUser ? normalizeArea(areaFromUser) : normalizeArea(matchData.area || matchData.city || '')) || selectedArea;
+        if (selectedArea) {
+          await fetchMatches(currentCity);
+        } else {
+          console.debug('fetchMatches skipped after addMatch: selectedArea empty');
+        }
+      } catch (e) {
+        // fallback: refresh by previous selected area
+        if (selectedArea) {
+          await fetchMatches(selectedArea);
+        } else {
+          console.debug('fetchMatches fallback skipped after addMatch: selectedArea empty');
+        }
+      }
 
       // Return inserted match object and whether the creator was recorded
-      return { ...data, creatorInserted };
+      return { ...data, creatorInserted, normalizedCity: normalizeArea(areaFromUser ?? matchData.area ?? matchData.city ?? '') };
     } catch (err) {
       console.error('❌ Error in addMatch:', err);
       throw err;
@@ -519,7 +741,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       console.log('✅ RPC join result:', rpcData);
 
       // Refresh full matches list so membership (from `match_players`) is authoritative
-      await fetchMatches();
+      if (selectedArea) await fetchMatches(selectedArea);
       return rpcData;
     } catch (err) {
       console.error('Error joining match:', err);
@@ -564,7 +786,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       }
 
       // Refresh matches so UI reflects updated membership
-      await fetchMatches();
+      if (selectedArea) await fetchMatches(selectedArea);
     } catch (err) {
       console.error('Error leaving match:', err);
       throw err;
@@ -585,8 +807,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       }
 
       const creatorId = match.createdBy || (match as any).creatorId || null;
-      if (!currentUserId || creatorId !== currentUserId) {
-        console.warn('deleteMatch: only the creator can delete this match');
+      const isAdmin = currentUser?.role === 'admin';
+      if (!currentUserId || (!isAdmin && creatorId !== currentUserId)) {
+        console.warn('deleteMatch: only the creator or an admin can delete this match');
         throw new Error('Not authorized to delete this match');
       }
 
@@ -662,7 +885,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       }
 
       console.log(`DEV: Deleted ${ids.length} empty matches.`);
-      await fetchMatches();
+      if (selectedArea) await fetchMatches(selectedArea);
     } catch (err) {
       console.error('DEV: unexpected error in deleteEmptyMatches:', err);
     }
@@ -707,7 +930,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       }
 
       console.log(`DEV: Deleted ${ids.length} old matches.`);
-      await fetchMatches();
+      if (selectedArea) await fetchMatches(selectedArea);
     } catch (err) {
       console.error('DEV: unexpected error in deleteMatchesOlderThan:', err);
     }
@@ -822,6 +1045,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       deleteOrphanMatches,
       authInitialized,
       refreshMatches: fetchMatches,
+      getMatchById,
       // DEV helpers (exported for manual invocation only)
       deleteEmptyMatches,
       deleteMatchesOlderThan,

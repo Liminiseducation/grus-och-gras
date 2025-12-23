@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMatches } from '../contexts/MatchContext';
 import PlayerAvatar from '../components/PlayerAvatar';
 import PasswordModal from '../components/PasswordModal';
@@ -12,9 +12,36 @@ function MatchDetailsPage() {
 
   const [joinPassword, setJoinPassword] = useState<string | undefined>(undefined);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const loading = !matches;
   const match = matches ? matches.find(m => m.id === id) : undefined;
+  const [fetchedMatch, setFetchedMatch] = useState<any | null>(null);
+
+  // If the match isn't present in the current `matches` (because the
+  // list is filtered by `city_key`), use the context helper to fetch
+  // the single match by id WITHOUT applying any city filter.
+  const { getMatchById } = useMatches();
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      if (!id) return;
+      if (match) {
+        setFetchedMatch(null);
+        return;
+      }
+      try {
+        const single = await getMatchById(id);
+        if (mounted) setFetchedMatch(single as any);
+      } catch (err) {
+        console.error('MatchDetails: getMatchById failed', err);
+        if (mounted) setFetchedMatch(null);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, match, getMatchById]);
 
   // Debug logs removed for production polish
 
@@ -25,30 +52,32 @@ function MatchDetailsPage() {
   // Determine membership based on authoritative `matchPlayers` returned
   // from Supabase `match_players` relationship. Check both `player_id` and
   // `player_name` to support rows created before `player_id` existed.
-  const isMember = !!match?.matchPlayers?.some((p: any) => {
+  const effectiveMatch = match || fetchedMatch || undefined;
+
+  const isMember = !!effectiveMatch?.matchPlayers?.some((p: any) => {
     const pid = (p as any).id || (p as any).player_id || '';
     const pname = (p as any).name || (p as any).player_name || '';
     return pid === currentUserId || pname === (currentUser?.username || '');
   });
-  const isCreator = match ? ((match.createdBy || (match as any).creatorId) === currentUserId) : false;
-  const isFull = match ? (match.players.length >= (match.maxPlayers || 0)) : false;
-  const players = match?.players || [];
-  const maxPlayers = match?.maxPlayers || 0;
+  const isCreator = effectiveMatch ? ((effectiveMatch.createdBy || (effectiveMatch as any).creatorId) === currentUserId) : false;
+  const isFull = effectiveMatch ? (effectiveMatch.players.length >= (effectiveMatch.maxPlayers || 0)) : false;
+  const players = effectiveMatch?.players || [];
+  const maxPlayers = effectiveMatch?.maxPlayers || 0;
   const remainingSpots = maxPlayers > players.length ? maxPlayers - players.length : 0;
 
   // Action button state logging removed
 
   const handleJoin = async () => {
     try {
-      console.log('Join clicked', { matchId: match?.id, userId: currentUserId });
-      if (!match || !joinMatch) return;
+      console.log('Join clicked', { matchId: effectiveMatch?.id, userId: currentUserId });
+      if (!effectiveMatch || !joinMatch) return;
       if (!currentUserId) {
         const ok = window.confirm('Du måste vara inloggad för att gå med i en match. Vill du logga in nu?');
         if (ok) navigate('/auth/login');
         return;
       }
       // If this match is marked private, show modal to collect password (no window.prompt)
-      if (match.isPrivate) {
+      if (effectiveMatch.isPrivate) {
         // Only show the modal if user is not already a member
         if (isMember) return;
         setShowPasswordModal(true);
@@ -57,21 +86,25 @@ function MatchDetailsPage() {
 
       try {
         console.debug('MatchDetails: calling joinMatch with no password');
-        await joinMatch(match.id, undefined);
+        await joinMatch(effectiveMatch.id, undefined);
+        setJoinError(null);
       } catch (err: any) {
         const msg = String(err || '').toLowerCase();
         if (msg.includes('password') || msg.includes('invalid')) {
-          alert('Fel lösenord — kunde inte gå med i matchen.');
+          // Ask user for password via modal and show inline error if they retry
+          setShowPasswordModal(true);
+          setJoinError('Fel lösenord. Försök igen.');
           return;
         }
         if (msg.includes('match not found') || msg.includes('not found')) {
-          alert('Matchen hittades inte eller har tagits bort.');
+          setJoinError('Matchen hittades inte eller har tagits bort.');
           return;
         }
         if (msg.includes('already') || msg.includes('joined')) {
-          alert('Du är redan med i matchen');
+          setJoinError('Du är redan med i matchen');
           return;
         }
+        setJoinError(String(err || 'Kunde inte gå med i matchen'));
         throw err;
       }
     } catch (err) {
@@ -81,9 +114,9 @@ function MatchDetailsPage() {
 
   const handleLeave = async () => {
     try {
-      console.log('Leave clicked', { matchId: match?.id, userId: currentUserId });
-      if (!match || !leaveMatch) return;
-      await leaveMatch(match.id, currentUserId);
+      console.log('Leave clicked', { matchId: effectiveMatch?.id, userId: currentUserId });
+      if (!effectiveMatch || !leaveMatch) return;
+      await leaveMatch(effectiveMatch.id, currentUserId);
     } catch (err) {
       console.error('Error leaving:', err);
     }
@@ -91,11 +124,11 @@ function MatchDetailsPage() {
 
   const handleDelete = async () => {
     try {
-      console.log('Delete clicked', { matchId: match?.id, userId: currentUserId });
-      if (!match || !deleteMatch) return;
+      console.log('Delete clicked', { matchId: effectiveMatch?.id, userId: currentUserId });
+      if (!effectiveMatch || !deleteMatch) return;
       const ok = window.confirm('Är du säker på att du vill radera denna match? Denna åtgärd kan inte ångras.');
       if (!ok) return;
-      await deleteMatch(match.id);
+      await deleteMatch(effectiveMatch.id);
       // Navigate back to match list after deletion
       navigate('/');
     } catch (err) {
@@ -105,21 +138,28 @@ function MatchDetailsPage() {
 
   const handlePasswordSubmit = async (password: string) => {
     try {
-      setShowPasswordModal(false);
+      // Try joining with provided password. Keep modal open on password error
       setJoinPassword(password);
-      await joinMatch?.(match?.id || '', password);
+      setJoinError(null);
+      await joinMatch?.(effectiveMatch?.id || '', password);
+      // success: clear error and close modal
+      setJoinError(null);
+      setShowPasswordModal(false);
     } catch (err: any) {
       const msg = String(err || '').toLowerCase();
       if (msg.includes('password') || msg.includes('invalid')) {
-        alert('Fel lösenord — kunde inte gå med i matchen.');
+        // keep modal open and show inline error
+        setJoinError('Fel lösenord. Försök igen.');
         return;
       }
       if (msg.includes('match not found') || msg.includes('not found')) {
-        alert('Matchen hittades inte eller har tagits bort.');
+        setShowPasswordModal(false);
+        setJoinError('Matchen hittades inte eller har tagits bort.');
         return;
       }
       if (msg.includes('already') || msg.includes('joined')) {
-        alert('Du är redan med i matchen');
+        setShowPasswordModal(false);
+        setJoinError('Du är redan med i matchen');
         return;
       }
       console.error('Error joining with password:', err);
@@ -136,7 +176,7 @@ function MatchDetailsPage() {
         </div>
       )}
 
-      {!loading && !match && (
+      {!loading && !effectiveMatch && (
         <div className="error-container">
           <div className="error-icon">⚽</div>
           <h2 className="error-title">Matchen hittades inte</h2>
@@ -145,6 +185,9 @@ function MatchDetailsPage() {
       )}
 
       <header className="details-header">
+        {joinError && !showPasswordModal && (
+          <div className="loading-banner" style={{ borderColor: 'rgba(162,35,47,0.15)', color: '#a2232f' }}>{joinError}</div>
+        )}
         <button
           className="back-button"
           onClick={() => navigate('/')}
@@ -156,20 +199,20 @@ function MatchDetailsPage() {
           Tillbaka
         </button>
 
-        <h1 className="match-title">{match?.title || 'Ingen titel'}</h1>
-        <p className="match-date">Datum: {match?.date || 'Okänt datum'}</p>
+        <h1 className="match-title">{effectiveMatch?.title || 'Ingen titel'}</h1>
+        <p className="match-date">Datum: {effectiveMatch?.date || 'Okänt datum'}</p>
       </header>
 
       <section className="info-section">
         <div className="info-grid">
           <div className="description-card">
-            <p className="description-text">{match?.description || 'Ingen beskrivning tillgänglig'}</p>
+            <p className="description-text">{effectiveMatch?.description || 'Ingen beskrivning tillgänglig'}</p>
           </div>
 
           <div className="info-card">
             <div className="info-label">Max antal spelare</div>
-            <div className="info-value">{match?.maxPlayers ?? 'Okänt antal'}</div>
-            {match?.playStyle && <div className="play-style-description">Spelstil: {match.playStyle}</div>}
+            <div className="info-value">{effectiveMatch?.maxPlayers ?? 'Okänt antal'}</div>
+            {effectiveMatch?.playStyle && <div className="play-style-description">Spelstil: {effectiveMatch.playStyle}</div>}
           </div>
         </div>
       </section>
@@ -177,45 +220,45 @@ function MatchDetailsPage() {
       {/* Matchinfo card: summary of match location and settings (mobile-friendly) */}
       <section className="match-info-card">
         <div className="match-info-inner">
-          { (match?.area || match?.city) && (
+          { (effectiveMatch?.area || effectiveMatch?.city) && (
             <div className="info-row">
               <div className="info-icon">📍</div>
-              <div className="info-text">{match?.area || match?.city}</div>
+              <div className="info-text">{effectiveMatch?.area || effectiveMatch?.city}</div>
             </div>
           )}
 
-          { match?.surface && (
+          { effectiveMatch?.surface && (
             <div className="info-row">
               <div className="info-icon">🌱</div>
-              <div className="info-text">{match.surface}</div>
+              <div className="info-text">{effectiveMatch.surface}</div>
             </div>
           )}
 
-          { typeof match?.requiresFootballShoes === 'boolean' && (
+          { typeof effectiveMatch?.requiresFootballShoes === 'boolean' && (
             <div className="info-row">
               <div className="info-icon">👟</div>
-              <div className="info-text">{match.requiresFootballShoes ? 'Fotbollsskor krävs' : 'Fotbollsskor behövs ej'}</div>
+              <div className="info-text">{effectiveMatch.requiresFootballShoes ? 'Fotbollsskor krävs' : 'Fotbollsskor behövs ej'}</div>
             </div>
           )}
 
-          { typeof match?.hasBall === 'boolean' && (
+          { typeof effectiveMatch?.hasBall === 'boolean' && (
             <div className="info-row">
               <div className="info-icon">⚽</div>
-              <div className="info-text">{match.hasBall ? 'Boll finns på plats' : 'Ta med boll'}</div>
+              <div className="info-text">{effectiveMatch.hasBall ? 'Boll finns på plats' : 'Ta med boll'}</div>
             </div>
           )}
 
-          { match?.playStyle && (
+          { effectiveMatch?.playStyle && (
             <div className="info-row">
               <div className="info-icon">🎯</div>
-              <div className="info-text">{match.playStyle.charAt(0).toUpperCase() + match.playStyle.slice(1)}</div>
+              <div className="info-text">{effectiveMatch.playStyle.charAt(0).toUpperCase() + effectiveMatch.playStyle.slice(1)}</div>
             </div>
           )}
 
-          { match?.description && (
+          { effectiveMatch?.description && (
             <div className="info-row">
               <div className="info-icon">🗒️</div>
-              <div className="info-text">{match.description}</div>
+              <div className="info-text">{effectiveMatch.description}</div>
             </div>
           )}
         </div>
@@ -227,8 +270,8 @@ function MatchDetailsPage() {
 
         <div className="players-grid">
           {(() => {
-            const players = match?.players || [];
-            const max = match?.maxPlayers || 0;
+            const players = effectiveMatch?.players || [];
+            const max = effectiveMatch?.maxPlayers || 0;
             const remaining = max > players.length ? max - players.length : 0;
 
             const nodes: any[] = [];
@@ -277,8 +320,8 @@ function MatchDetailsPage() {
 
         {/* Remaining spots summary (replaces individual empty cards) */}
         {(() => {
-          const players = match?.players || [];
-          const max = match?.maxPlayers || 0;
+          const players = effectiveMatch?.players || [];
+          const max = effectiveMatch?.maxPlayers || 0;
           const remaining = max > players.length ? max - players.length : 0;
           if (max > 0) {
             return (
@@ -334,7 +377,8 @@ function MatchDetailsPage() {
         open={showPasswordModal}
         initialPassword={joinPassword}
         onSubmit={handlePasswordSubmit}
-        onClose={() => setShowPasswordModal(false)}
+        onClose={() => { setShowPasswordModal(false); setJoinError(null); }}
+        errorText={joinError || null}
       />
       </div>
     </div>
