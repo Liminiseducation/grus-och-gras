@@ -334,6 +334,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         creatorId: dbMatch.created_by,
         creatorName: dbMatch.creator_name,
         createdAt: dbMatch.created_at,
+        ageGroup: dbMatch.age_group,
+        refereeStatus: dbMatch.referee_status,
         // Map DB-side private flag to client match object (dev-only).
         // Do NOT include the password in client-visible match objects.
         isPrivate: !!dbMatch.is_private,
@@ -426,6 +428,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         creatorId: dbMatch.created_by,
         creatorName: dbMatch.creator_name,
         createdAt: dbMatch.created_at,
+        ageGroup: dbMatch.age_group,
+        refereeStatus: dbMatch.referee_status,
         isPrivate: !!dbMatch.is_private,
         normalizedArea: normalizeArea(dbMatch.area || dbMatch.city || ''),
         normalizedCity: normalizeArea(dbMatch.city || ''),
@@ -505,6 +509,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         surface: matchData.surface,
         has_ball: matchData.hasBall,
         requires_football_shoes: matchData.requiresFootballShoes,
+        age_group: (matchData as any).ageGroup || null,
+        referee_status: (matchData as any).refereeStatus || null,
         play_style: matchData.playStyle,
         players: (createdBy || currentUser?.id) && (creatorName || currentUser?.username) ? [{ id: createdBy || currentUser?.id || '', name: (creatorName && creatorName.length > 1) ? creatorName : (currentUser?.username || creatorName || '') }] : [],
         // Prefer user's stored area; fall back to provided area or city
@@ -572,6 +578,40 @@ export function MatchProvider({ children }: { children: ReactNode }) {
           const msg2 = String(((insertError as any)?.message || '')).toLowerCase();
           if (msg2.includes('city_key') || msg2.includes("could not find the 'city_key'")) {
             // If DB lacks `city_key` column, surface the error (no fallback).
+          }
+          // If DB schema missing `age_group`, retry without that column
+          if (msg2.includes('age_group') || msg2.includes("could not find the 'age_group'")) {
+            console.warn('addMatch: DB schema missing age_group column, retrying insert without age_group');
+            try {
+              const dbNoAge = { ...dbMatchBase };
+              delete dbNoAge.age_group;
+              const { data, error } = await supabase
+                .from('matches')
+                .insert([dbNoAge])
+                .select()
+                .single();
+              insertResult = data;
+              insertError = error;
+            } catch (err) {
+              insertError = err;
+            }
+          }
+          // If DB schema missing `referee_status`, retry without that column
+          if (msg2.includes('referee_status') || msg2.includes("could not find the 'referee_status'")) {
+            console.warn('addMatch: DB schema missing referee_status column, retrying insert without referee_status');
+            try {
+              const dbNoRef = { ...dbMatchBase };
+              delete dbNoRef.referee_status;
+              const { data, error } = await supabase
+                .from('matches')
+                .insert([dbNoRef])
+                .select()
+                .single();
+              insertResult = data;
+              insertError = error;
+            } catch (err) {
+              insertError = err;
+            }
           }
         }
       }

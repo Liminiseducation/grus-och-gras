@@ -39,6 +39,10 @@ export interface Match {
   isPrivate?: boolean;
   // Optional password for private matches (dev-only storage)
   password?: string;
+  // Age group for the match (stored as a code, e.g. "10_12")
+  ageGroup?: string;
+  // Referee status for the match (e.g. 'none', 'needed', 'contacted', 'confirmed')
+  refereeStatus?: string;
   // Authoritative players loaded via `match_players` relationship
   matchPlayers?: Player[];
 }

@@ -20,6 +20,8 @@ type CreateMatchFormState = {
   description: string;
   privateMatch?: boolean;
   password?: string;
+  ageGroup: '' | '6_9' | '10_12' | '13_15' | '16_18' | '18_plus' | 'all';
+  refereeStatus: '' | 'none' | 'needed' | 'contacted' | 'confirmed';
 };
 
 function CreateMatchPage() {
@@ -45,6 +47,8 @@ function CreateMatchPage() {
     description: '',
     privateMatch: false,
     password: '',
+    ageGroup: '',
+    refereeStatus: '',
   };
 
   const [formData, setFormData] = useState<CreateMatchFormState>(() => {
@@ -59,6 +63,11 @@ function CreateMatchPage() {
     }
     return defaultForm;
   });
+  // For training-specific numeric input: allow empty while typing and
+  // represent value as number | null per requirements.
+  const [trainingParticipants, setTrainingParticipants] = useState<number | null>(null);
+
+  const [ageGroupTouched, setAgeGroupTouched] = useState<boolean>(false);
 
   // Persist form to sessionStorage on change so it survives remounts/refreshes
   useEffect(() => {
@@ -79,22 +88,43 @@ function CreateMatchPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+    // Validate age group
+    if (!formData.ageGroup) {
+      setAgeGroupTouched(true);
+      alert('Vänligen välj en åldersgrupp.');
+      return;
+    }
+    // Validate training participants only on submit per requirements
+    if (formData.playStyle === 'träning') {
+      if (trainingParticipants === null) {
+        alert('Ange antal deltagare för träning (min 2).');
+        return;
+      }
+      if (trainingParticipants < 2 || trainingParticipants > 50) {
+        alert('Antal deltagare för träning måste vara mellan 2 och 50.');
+        return;
+      }
+    }
+
     console.log('Creating match with data:', formData);
     
     try {
+      const maxPlayersToUse = formData.playStyle === 'träning' ? trainingParticipants ?? parseInt(formData.maxPlayers, 10) : parseInt(formData.maxPlayers, 10);
+
       const inserted = await addMatch({
         title: formData.title,
         area: formData.area,
         city: formData.city || '',
         date: formData.date,
         time: formData.time,
-        maxPlayers: parseInt(formData.maxPlayers),
+        maxPlayers: maxPlayersToUse,
         surface: formData.surface,
         hasBall: formData.hasBall,
         requiresFootballShoes: formData.requiresFootballShoes,
         playStyle: formData.playStyle || undefined,
         description: formData.description || undefined,
+        ageGroup: formData.ageGroup || undefined,
+        refereeStatus: formData.refereeStatus || undefined,
         // Store private flags/password with the match data (dev-only)
         isPrivate: !!formData.privateMatch,
         password: formData.password || undefined,
@@ -274,6 +304,55 @@ function CreateMatchPage() {
             </select>
           </div>
 
+          <div className="form-field">
+            <label htmlFor="ageGroup" className="field-label">
+              Åldersgrupp <span className="field-required">*</span>
+            </label>
+            <select
+              id="ageGroup"
+              name="ageGroup"
+              className="select-input"
+              value={formData.ageGroup}
+              onChange={(e) => {
+                setFormData((prev: CreateMatchFormState) => ({ ...prev, ageGroup: e.target.value as any }));
+                setAgeGroupTouched(true);
+              }}
+              onBlur={() => setAgeGroupTouched(true)}
+              required
+            >
+              <option value="">Välj åldersgrupp</option>
+              <option value="6_9">6–9 år</option>
+              <option value="10_12">10–12 år</option>
+              <option value="13_15">13–15 år</option>
+              <option value="16_18">16–18 år</option>
+              <option value="18_plus">18+</option>
+              <option value="all">Alla åldrar</option>
+            </select>
+            {ageGroupTouched && !formData.ageGroup && (
+              <p className="field-error">Välj en åldersgrupp för att fortsätta.</p>
+            )}
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="refereeStatus" className="field-label">
+              Domare
+            </label>
+            <select
+              id="refereeStatus"
+              name="refereeStatus"
+              className="select-input"
+              value={formData.refereeStatus}
+              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, refereeStatus: e.target.value as any }))}
+            >
+              <option value="">Ingen vald</option>
+              <option value="none">Ingen domare (spontanspel)</option>
+              <option value="needed">Domare behövs</option>
+              <option value="contacted">Domare är kontaktad</option>
+              <option value="confirmed">Domare är klar</option>
+            </select>
+            <p className="field-helper">Välj referee-status (valfritt)</p>
+          </div>
+
           {/* Player selection: behavior depends on selected `playStyle` */}
           <div className="form-field">
             <label htmlFor="playerSelector" className="field-label">Spelare</label>
@@ -285,14 +364,18 @@ function CreateMatchPage() {
                   name="maxPlayers"
                   type="number"
                   className="text-input"
-                  min={1}
-                  max={99}
-                  value={formData.maxPlayers}
+                  min={2}
+                  max={50}
+                  value={trainingParticipants ?? ''}
                   onChange={(e) => {
-                    const num = Math.max(1, Math.min(99, Number(e.target.value || 1)));
-                    setFormData((prev: CreateMatchFormState) => ({ ...prev, maxPlayers: String(num) }));
+                    const val = e.target.value;
+                    if (val === '') {
+                      setTrainingParticipants(null);
+                    } else {
+                      const n = Number(val);
+                      if (!Number.isNaN(n)) setTrainingParticipants(n);
+                    }
                   }}
-                  required
                 />
                 <p className="field-helper">Ange totalt antal deltagare vid träning.</p>
               </div>
@@ -342,7 +425,7 @@ function CreateMatchPage() {
               onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, hasBall: e.target.checked }))}
               className="checkbox-input"
             />
-            <span className="checkbox-label">Jag tar med boll</span>
+            <span className="checkbox-label">Fotboll finns</span>
           </label>
 
           <div className="checkbox-field-wrapper">
@@ -354,10 +437,10 @@ function CreateMatchPage() {
                 onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, requiresFootballShoes: e.target.checked }))}
                 className="checkbox-input"
               />
-              <span className="checkbox-label">Jag tar med fotbollsskor</span>
+              <span className="checkbox-label">Fotbollsskor krävs</span>
             </label>
             {(formData.surface === 'Konstgräs' || formData.surface === 'Naturgräs') && !formData.requiresFootballShoes && (
-              <p className="checkbox-suggestion">💡 Rekommenderas för {formData.surface.toLowerCase()}</p>
+              <p className="checkbox-suggestion">💡 Rekommenderas för konstgräs</p>
             )}
           </div>
         </section>
@@ -383,7 +466,7 @@ function CreateMatchPage() {
 
         <div className="form-actions">
           <button type="button" className="cancel-button" onClick={handleCancel}>Avbryt</button>
-          <button type="submit" className="submit-button">Starta matchen</button>
+          <button type="submit" className="submit-button" disabled={!formData.ageGroup}>Starta matchen</button>
         </div>
       </form>
     </div>

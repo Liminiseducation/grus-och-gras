@@ -26,6 +26,16 @@ function MatchCard({ match }: MatchCardProps) {
         <span className="chip">
           {match.hasBall ? 'Boll finns' : 'Boll saknas'}
         </span>
+        {match.ageGroup && (
+          <span className="chip">Ålder: {(
+            match.ageGroup === '6_9' ? '6–9 år' :
+            match.ageGroup === '10_12' ? '10–12 år' :
+            match.ageGroup === '13_15' ? '13–15 år' :
+            match.ageGroup === '16_18' ? '16–18 år' :
+            match.ageGroup === '18_plus' ? '18+' :
+            match.ageGroup === 'all' ? 'Alla åldrar' : match.ageGroup
+          )}</span>
+        )}
         {match.playStyle && (
           <span className="chip chip-play-style">
             {match.playStyle.charAt(0).toUpperCase() + match.playStyle.slice(1)}

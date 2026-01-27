@@ -261,6 +261,20 @@ function MatchDetailsPage() {
               <div className="info-text">{effectiveMatch.description}</div>
             </div>
           )}
+          { effectiveMatch?.refereeStatus && (
+            <div className="info-row">
+              <div className="info-icon">🧑‍⚖️</div>
+              <div className="info-text">
+                {effectiveMatch.refereeStatus === 'none' && 'Ingen domare (spontanspel)'}
+                {effectiveMatch.refereeStatus === 'needed' && 'Domare behövs'}
+                {effectiveMatch.refereeStatus === 'contacted' && 'Domare är kontaktad'}
+                {effectiveMatch.refereeStatus === 'confirmed' && 'Domare är klar'}
+                {effectiveMatch.refereeStatus === 'confirmed' && (
+                  <div className="small-note">Matchen spelas med domare</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
