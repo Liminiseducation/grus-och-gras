@@ -510,7 +510,6 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         has_ball: matchData.hasBall,
         requires_football_shoes: matchData.requiresFootballShoes,
         age_group: (matchData as any).ageGroup || null,
-        referee_status: (matchData as any).refereeStatus || null,
         play_style: matchData.playStyle,
         players: (createdBy || currentUser?.id) && (creatorName || currentUser?.username) ? [{ id: createdBy || currentUser?.id || '', name: (creatorName && creatorName.length > 1) ? creatorName : (currentUser?.username || creatorName || '') }] : [],
         // Prefer user's stored area; fall back to provided area or city
@@ -522,6 +521,12 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         created_by: createdBy ?? currentUser?.id ?? null,
         creator_name: creatorName ?? currentUser?.username ?? null,
       };
+
+      // Only include `referee_status` when the caller explicitly provided it.
+      // This prevents inserts from failing when the DB schema lacks the column.
+      if ((matchData as any).refereeStatus !== undefined) {
+        dbMatchBase.referee_status = (matchData as any).refereeStatus || null;
+      }
 
       // Optionally include private fields if provided by the form
       const wantsPrivate = !!((matchData as any).isPrivate || (matchData as any).password);

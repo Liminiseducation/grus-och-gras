@@ -111,7 +111,7 @@ function CreateMatchPage() {
     try {
       const maxPlayersToUse = formData.playStyle === 'träning' ? trainingParticipants ?? parseInt(formData.maxPlayers, 10) : parseInt(formData.maxPlayers, 10);
 
-      const inserted = await addMatch({
+      const payload: any = {
         title: formData.title,
         area: formData.area,
         city: formData.city || '',
@@ -124,11 +124,17 @@ function CreateMatchPage() {
         playStyle: formData.playStyle || undefined,
         description: formData.description || undefined,
         ageGroup: formData.ageGroup || undefined,
-        refereeStatus: formData.refereeStatus || undefined,
         // Store private flags/password with the match data (dev-only)
         isPrivate: !!formData.privateMatch,
         password: formData.password || undefined,
-      }, user?.id, user?.username);
+      };
+
+      // Omit refereeStatus for training matches to avoid sending unknown column
+      if (formData.playStyle !== 'träning') {
+        payload.refereeStatus = formData.refereeStatus || undefined;
+      }
+
+      const inserted = await addMatch(payload, user?.id, user?.username);
       console.log('Match created, inserted:', inserted);
       if (!inserted || !inserted.id) {
         console.error('CreateMatch: addMatch returned no id:', inserted);
@@ -334,23 +340,25 @@ function CreateMatchPage() {
           </div>
 
           <div className="form-field">
-            <label htmlFor="refereeStatus" className="field-label">
-              Domare
-            </label>
-            <select
-              id="refereeStatus"
-              name="refereeStatus"
-              className="select-input"
-              value={formData.refereeStatus}
-              onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, refereeStatus: e.target.value as any }))}
-            >
-              <option value="">Ingen vald</option>
-              <option value="none">Ingen domare (spontanspel)</option>
-              <option value="needed">Domare behövs</option>
-              <option value="contacted">Domare är kontaktad</option>
-              <option value="confirmed">Domare är klar</option>
-            </select>
-            <p className="field-helper">Välj referee-status (valfritt)</p>
+            {formData.playStyle !== 'träning' && (
+              <>
+                <label htmlFor="refereeStatus" className="field-label">Domare</label>
+                <select
+                  id="refereeStatus"
+                  name="refereeStatus"
+                  className="select-input"
+                  value={formData.refereeStatus}
+                  onChange={(e) => setFormData((prev: CreateMatchFormState) => ({ ...prev, refereeStatus: e.target.value as any }))}
+                >
+                  <option value="">Ingen vald</option>
+                  <option value="none">Ingen domare (spontanspel)</option>
+                  <option value="needed">Domare behövs</option>
+                  <option value="contacted">Domare är kontaktad</option>
+                  <option value="confirmed">Domare är klar</option>
+                </select>
+                <p className="field-helper">Välj referee-status (valfritt)</p>
+              </>
+            )}
           </div>
 
           {/* Player selection: behavior depends on selected `playStyle` */}
